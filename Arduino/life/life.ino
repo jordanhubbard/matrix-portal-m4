@@ -14,8 +14,15 @@ uint8_t oePin      = 16;
 #define DELAY_TIME 0     // Number of mSec to delay between loops
 #define MAX_GENCOUNT 500 // How many generations to get to before resetting to prevent "dead screen"
 
-// 5th argument is number of address lines for "height": 3 is 16, 4 is 32, 5 is 64, 6 is 128
-Adafruit_Protomatter matrix(MATRIX_WIDTH, 1, 1, rgbPins, 5, addrPins, clockPin, latchPin, oePin, false);
+#if MATRIX_HEIGHT == 16
+#define NUM_ADDR_PINS 3
+#elif MATRIX_HEIGHT == 32
+#define NUM_ADDR_PINS 4
+#elif MATRIX_HEIGHT == 64
+#define NUM_ADDR_PINS 5
+#endif
+
+Adafruit_Protomatter matrix(MATRIX_WIDTH, 1, 1, rgbPins, NUM_ADDR_PINS, addrPins, clockPin, latchPin, oePin, false);
 
 const int rows = MATRIX_HEIGHT;
 const int cols = MATRIX_WIDTH;
