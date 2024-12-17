@@ -1,3 +1,7 @@
+// From the Arduino tutorials, updated for my 64x128 pixel array (two panels).
+// Really just checked in here to remind me how many address lines and other
+// things to use in other examples.
+
 #include <Adafruit_Protomatter.h>
 
 uint8_t rgbPins[]  = {7, 8, 9, 10, 11, 12};
