@@ -15,35 +15,50 @@ uint8_t oePin      = 16;
 #define MAX_GENCOUNT 500 // How many generations to get to before resetting to prevent "dead screen"
 
 // 5th argument is number of address lines for "height": 3 is 16, 4 is 32, 5 is 64, 6 is 128
-Adafruit_Protomatter matrix(MATRIX_WIDTH, 4, 1, rgbPins, 5, addrPins, clockPin, latchPin, oePin, false);
+Adafruit_Protomatter matrix(MATRIX_WIDTH, 1, 1, rgbPins, 5, addrPins, clockPin, latchPin, oePin, false);
 
 const int rows = MATRIX_HEIGHT;
 const int cols = MATRIX_WIDTH;
-int redPixel;
-int greenPixel;
-int bluePixel;
-int generationCount;
+int random_color;
+int generation_count;
 bool grid[rows][cols];
-bool nextGrid[rows][cols];
+bool next_grid[rows][cols];
+
+typedef struct {
+    const char *name;  // Color name
+    uint8_t r;         // Red component (0-255)
+    uint8_t g;         // Green component (0-255)
+    uint8_t b;         // Blue component (0-255)
+} PantoneColor;
+
+// Pantone color palette
+PantoneColor pantonePalette[] = {
+    {"PANTONE 186 C", 255, 0, 0},       // Red
+    {"PANTONE 158 C", 255, 128, 0},     // Orange
+    {"PANTONE 116 C", 255, 255, 0},     // Yellow
+    {"PANTONE 348 C", 0, 128, 0},       // Green
+    {"PANTONE 299 C", 0, 128, 255},     // Sky Blue
+    {"PANTONE 274 C", 0, 0, 128},       // Deep Blue
+    {"PANTONE 527 C", 128, 0, 128},     // Purple
+    {"PANTONE 429 C", 192, 192, 192},   // Light Gray
+    {"PANTONE Cool Gray 11 C", 128, 128, 128}, // Dark Gray
+    {"PANTONE 426 C", 0, 0, 0},         // Black
+    {"PANTONE White", 255, 255, 255}    // White
+};
+#define PALETTE_SIZE (sizeof(pantonePalette) / sizeof(pantonePalette[0]))
 
 // Function to initialize the grid randomly
-void initializeGrid() {
-  generationCount = 0;
+void intializeEverything() {
   randomSeed(millis());
-  
+  random_color = random(PALETTE_SIZE);
+  generation_count = 0;
+
+  // Initialize the life board to random stuff
   for (int y = 0; y < rows; y++) {
     for (int x = 0; x < cols; x++) {
       grid[y][x] = random(2); // Randomly alive (1) or dead (0)
     }
   }
-
-  // Set a random color tuple, but make sure it's not black.
-  setColors:
-    redPixel = random(256);
-    greenPixel = random(256);
-    bluePixel = random(256);
-    if (!redPixel && !greenPixel && !bluePixel)
-      goto setColors;
 }
 
 // Count live neighbors for a cell
@@ -66,9 +81,9 @@ void updateGrid() {
     for (int x = 0; x < cols; x++) {
       int neighbors = countNeighbors(y, x);
       if (grid[y][x]) {
-        nextGrid[y][x] = (neighbors == 2 || neighbors == 3);
+        next_grid[y][x] = (neighbors == 2 || neighbors == 3);
       } else {
-        nextGrid[y][x] = (neighbors == 3);
+        next_grid[y][x] = (neighbors == 3);
       }
     }
   }
@@ -76,7 +91,7 @@ void updateGrid() {
   // Copy nextGrid to grid
   for (int y = 0; y < rows; y++) {
     for (int x = 0; x < cols; x++) {
-      grid[y][x] = nextGrid[y][x];
+      grid[y][x] = next_grid[y][x];
     }
   }
 }
@@ -87,7 +102,8 @@ void drawGrid() {
   for (int y = 0; y < rows; y++) {
     for (int x = 0; x < cols; x++) {
       if (grid[y][x]) {
-        matrix.drawPixel(x, y, matrix.color565(redPixel, greenPixel, bluePixel)); // Something random for live cells
+        // Live cell - draw in random pantone color
+        matrix.drawPixel(x, y, matrix.color565(pantonePalette[random_color].r, pantonePalette[random_color].g, pantonePalette[random_color].b));
       }
     }
   }
@@ -104,14 +120,14 @@ void setup(void) {
   if(status != PROTOMATTER_OK) {
     for(;;);
   }
-  initializeGrid();
+  intializeEverything();
 }
 
 void loop() {
   drawGrid();    // Display the current grid
   updateGrid();  // Update the grid for the next iteration
-  Serial.println(generationCount);
+  Serial.println(generation_count);
   delay(DELAY_TIME);    // Adjust delay for speed
-  if (generationCount++ >= MAX_GENCOUNT)
-    initializeGrid();
+  if (generation_count++ >= MAX_GENCOUNT)
+    intializeEverything();
 }
