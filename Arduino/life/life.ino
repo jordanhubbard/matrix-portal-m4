@@ -11,7 +11,7 @@ uint8_t oePin      = 16;
 // Matrix configuration
 #define MATRIX_WIDTH 128  // Adjust for your LED matrix size
 #define MATRIX_HEIGHT 64  // Adjust for your LED matrix size (but see below for address line value)
-#define DELAY_TIME 0     // Number of mSec to delay between loops
+#define DELAY_TIME 5     // Number of mSec to delay between loops
 #define MAX_GENCOUNT 500 // How many generations to get to before resetting to prevent "dead screen"
 
 #if MATRIX_HEIGHT == 16
@@ -24,12 +24,10 @@ uint8_t oePin      = 16;
 
 Adafruit_Protomatter matrix(MATRIX_WIDTH, 1, 1, rgbPins, NUM_ADDR_PINS, addrPins, clockPin, latchPin, oePin, false);
 
-const int rows = MATRIX_HEIGHT;
-const int cols = MATRIX_WIDTH;
 int random_color;
 int generation_count;
-bool grid[rows][cols];
-bool next_grid[rows][cols];
+bool grid[MATRIX_HEIGHT][MATRIX_WIDTH];
+bool next_grid[MATRIX_HEIGHT][MATRIX_WIDTH];
 
 typedef struct {
     const char *name;  // Color name
@@ -61,8 +59,8 @@ void intializeEverything() {
   generation_count = 0;
 
   // Initialize the life board to random stuff
-  for (int y = 0; y < rows; y++) {
-    for (int x = 0; x < cols; x++) {
+  for (int y = 0; y < MATRIX_HEIGHT; y++) {
+    for (int x = 0; x < MATRIX_WIDTH; x++) {
       grid[y][x] = random(2); // Randomly alive (1) or dead (0)
     }
   }
@@ -74,8 +72,8 @@ int countNeighbors(int y, int x) {
   for (int i = -1; i <= 1; i++) {
     for (int j = -1; j <= 1; j++) {
       if (i == 0 && j == 0) continue; // Skip the cell itself
-      int newY = (y + i + rows) % rows;
-      int newX = (x + j + cols) % cols;
+      int newY = (y + i + MATRIX_HEIGHT) % MATRIX_HEIGHT;
+      int newX = (x + j + MATRIX_WIDTH) % MATRIX_WIDTH;
       if (grid[newY][newX]) count++;
     }
   }
@@ -84,8 +82,8 @@ int countNeighbors(int y, int x) {
 
 // Update the grid based on Game of Life rules
 void updateGrid() {
-  for (int y = 0; y < rows; y++) {
-    for (int x = 0; x < cols; x++) {
+  for (int y = 0; y < MATRIX_HEIGHT; y++) {
+    for (int x = 0; x < MATRIX_WIDTH; x++) {
       int neighbors = countNeighbors(y, x);
       if (grid[y][x]) {
         next_grid[y][x] = (neighbors == 2 || neighbors == 3);
@@ -96,8 +94,8 @@ void updateGrid() {
   }
   
   // Copy nextGrid to grid
-  for (int y = 0; y < rows; y++) {
-    for (int x = 0; x < cols; x++) {
+  for (int y = 0; y < MATRIX_HEIGHT; y++) {
+    for (int x = 0; x < MATRIX_WIDTH; x++) {
       grid[y][x] = next_grid[y][x];
     }
   }
@@ -106,8 +104,8 @@ void updateGrid() {
 // Draw the grid on the matrix
 void drawGrid() {
   matrix.fillScreen(0); // Clear matrix
-  for (int y = 0; y < rows; y++) {
-    for (int x = 0; x < cols; x++) {
+  for (int y = 0; y < MATRIX_HEIGHT; y++) {
+    for (int x = 0; x < MATRIX_WIDTH; x++) {
       if (grid[y][x]) {
         // Live cell - draw in random pantone color
         matrix.drawPixel(x, y, matrix.color565(pantonePalette[random_color].r, pantonePalette[random_color].g, pantonePalette[random_color].b));
