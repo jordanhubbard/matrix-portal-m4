@@ -62,8 +62,9 @@ void setup(void) {
 
   ProtomatterStatus status = matrix.begin();
   Serial.printf("Protomatter begin() status: %d\n", status);
-  if(status != PROTOMATTER_OK) {
-    for(;;);
+  if (status != PROTOMATTER_OK) {
+    Serial.println("Aiee, protomatter is screwed!  %d", status);
+    return;
   }
   
   if (!sand.begin()) {
