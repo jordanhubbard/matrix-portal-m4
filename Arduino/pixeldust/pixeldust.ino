@@ -18,11 +18,19 @@ or "doublebuffer" for animation basics.
 #define WIDTH   128 // Matrix width (pixels)
 #define MAX_FPS 45 // Maximum redraw rate, frames/second
 
+#if defined(_VARIANT_MATRIXPORTAL_M4_) // MatrixPortal M4
 uint8_t rgbPins[]  = {7, 8, 9, 10, 11, 12};
 uint8_t addrPins[] = {17, 18, 19, 20, 21};
 uint8_t clockPin   = 14;
 uint8_t latchPin   = 15;
 uint8_t oePin      = 16;
+#else // MatrixPortal ESP32-S3
+uint8_t rgbPins[]  = {42, 41, 40, 38, 39, 37};
+uint8_t addrPins[] = {45, 36, 48, 35, 21};
+uint8_t clockPin   = 2;
+uint8_t latchPin   = 47;
+uint8_t oePin      = 14;
+#endif
 
 #if HEIGHT == 16
 #define NUM_ADDR_PINS 3
@@ -32,7 +40,9 @@ uint8_t oePin      = 16;
 #define NUM_ADDR_PINS 5
 #endif
 
-Adafruit_Protomatter matrix(WIDTH, 4, 1, rgbPins, NUM_ADDR_PINS, addrPins, clockPin, latchPin, oePin, true);
+Adafruit_Protomatter matrix(
+  WIDTH, 4, 1, rgbPins, NUM_ADDR_PINS, addrPins,
+  clockPin, latchPin, oePin, true);
 
 Adafruit_LIS3DH accel = Adafruit_LIS3DH();
 
@@ -66,7 +76,7 @@ void setup(void) {
     Serial.println("Aiee, protomatter is screwed!  %d", status);
     return;
   }
-  
+
   if (!sand.begin()) {
     Serial.println("Couldn't start sand");
     err(1000); // Slow blink = malloc error
@@ -87,7 +97,7 @@ void setup(void) {
     int yy =  HEIGHT - BOX_HEIGHT;
     for(int y=0; y<BOX_HEIGHT; y++) {
       for(int x=0; x < WIDTH / N_COLORS; x++) {
-        Serial.printf("#%d -> (%d, %d)\n", n,  xx + x, yy + y);
+        //Serial.printf("#%d -> (%d, %d)\n", n,  xx + x, yy + y);
         sand.setPosition(n++, xx + x, yy + y);
       }
     }
