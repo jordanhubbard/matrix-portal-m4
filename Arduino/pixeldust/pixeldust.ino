@@ -15,8 +15,8 @@ or "doublebuffer" for animation basics.
 
 // Set to my dual 64x64 panel display
 #define HEIGHT  64 // Matrix height (pixels) - SET TO 64 FOR 64x64 MATRIX!
-#define WIDTH   128 // Matrix width (pixels)
-#define MAX_FPS 45 // Maximum redraw rate, frames/second
+#define WIDTH   64 // Matrix width (pixels)
+#define MAX_FPS 60 // Maximum redraw rate, frames/second
 
 #if defined(_VARIANT_MATRIXPORTAL_M4_) // MatrixPortal M4
 uint8_t rgbPins[]  = {7, 8, 9, 10, 11, 12};
