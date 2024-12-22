@@ -16,7 +16,7 @@ or "doublebuffer" for animation basics.
 // Set to my dual 64x64 panel display
 #define HEIGHT  64 // Matrix height (pixels) - SET TO 64 FOR 64x64 MATRIX!
 #define WIDTH   64 // Matrix width (pixels)
-#define MAX_FPS 60 // Maximum redraw rate, frames/second
+#define MAX_FPS 45 // Maximum redraw rate, frames/second
 
 #if defined(_VARIANT_MATRIXPORTAL_M4_) // MatrixPortal M4
 uint8_t rgbPins[]  = {7, 8, 9, 10, 11, 12};
@@ -88,7 +88,7 @@ void setup(void) {
   }
   accel.setRange(LIS3DH_RANGE_4_G);   // 2, 4, 8 or 16 G!
 
-  //sand.randomize(); // Initialize random sand positions
+  // sand.randomize(); // Initialize random sand positions
 
   // Set up initial sand coordinates, in 8x8 blocks
   int n = 0;
@@ -128,7 +128,7 @@ void loop() {
   // Read accelerometer...
   sensors_event_t event;
   accel.getEvent(&event);
-  //Serial.printf("(%0.1f, %0.1f, %0.1f)\n", event.acceleration.x, event.acceleration.y, event.acceleration.z);
+  // Serial.printf("%d, %d, %d\n", event.acceleration.x, event.acceleration.y, event.acceleration.z);
 
   double xx, yy, zz;
   xx = event.acceleration.x * 1000;
