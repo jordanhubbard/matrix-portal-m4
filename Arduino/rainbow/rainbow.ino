@@ -40,10 +40,8 @@ void setup() {
 		Serial.printf("Aiee, protomatter is screwed!  %d", status);
 		return;
 	}
-	// Set global brightness (0–255). Adjust if needed.
-	matrix.setBrightness(255);
 	// Clear the display once at startup
-	matrix.clear();
+	matrix.fillScreen(0);
 	matrix.show();
 }
 
