@@ -22,43 +22,42 @@ uint8_t oePin      = 16;
 #define NUM_ADDR_PINS 5
 #endif
 
-Adafruit_Protomatter matrix(
-	128, 4, 1, rgbPins, NUM_ADDR_PINS, addrPins, clockPin, latchPin, oePin, false);
+Adafruit_Protomatter matrix(WIDTH, 4, 1, rgbPins, NUM_ADDR_PINS, addrPins, clockPin, latchPin, oePin, false);
 
 void setup(void) {
-	Serial.begin(9600);
-
-	// Initialize matrix...
-	ProtomatterStatus status = matrix.begin();
-	if (status != PROTOMATTER_OK) {
-		Serial.printf("Aiee, protomatter is screwed!  %d", status);
-		return;
-	}
-
-	// Make four color bars (red, green, blue, white) with brightness ramp:
-	for(int x=0; x<matrix.width(); x++) {
-		uint8_t level = x * 256 / matrix.width(); // 0-255 brightness
-		matrix.drawPixel(x, matrix.height() - 4, matrix.color565(level, 0, 0));
-		matrix.drawPixel(x, matrix.height() - 3, matrix.color565(0, level, 0));
-		matrix.drawPixel(x, matrix.height() - 2, matrix.color565(0, 0, level));
-		matrix.drawPixel(x, matrix.height() - 1, matrix.color565(level, level, level));
-	}
-
-	// Simple shapes and text, showing GFX library calls:
-	matrix.drawCircle(12, 10, 9, matrix.color565(255, 0, 0));               // Red
-	matrix.drawRect(14, 6, 17, 17, matrix.color565(0, 255, 0));             // Green
-	matrix.drawTriangle(32, 9, 41, 27, 23, 27, matrix.color565(0, 0, 255)); // Blue
-	matrix.println("ADAFRUIT"); // Default text color is white
-
-	// AFTER DRAWING, A show() CALL IS REQUIRED TO UPDATE THE MATRIX!
-
-	matrix.show(); // Copy data to matrix buffers
+  Serial.begin(9600);
+  
+  // Initialize matrix...
+  ProtomatterStatus status = matrix.begin();
+  if (status != PROTOMATTER_OK) {
+    Serial.printf("Aiee, protomatter is screwed!  %d", status);
+    return;
+  }
+  
+  // Make four color bars (red, green, blue, white) with brightness ramp:
+  for(int x=0; x<matrix.width(); x++) {
+    uint8_t level = x * 256 / matrix.width(); // 0-255 brightness
+    matrix.drawPixel(x, matrix.height() - 4, matrix.color565(level, 0, 0));
+    matrix.drawPixel(x, matrix.height() - 3, matrix.color565(0, level, 0));
+    matrix.drawPixel(x, matrix.height() - 2, matrix.color565(0, 0, level));
+    matrix.drawPixel(x, matrix.height() - 1, matrix.color565(level, level, level));
+  }
+  
+  // Simple shapes and text, showing GFX library calls:
+  matrix.drawCircle(12, 10, 9, matrix.color565(255, 0, 0));               // Red
+  matrix.drawRect(14, 6, 17, 17, matrix.color565(0, 255, 0));             // Green
+  matrix.drawTriangle(32, 9, 41, 27, 23, 27, matrix.color565(0, 0, 255)); // Blue
+  matrix.println("ADAFRUIT"); // Default text color is white
+  
+  // AFTER DRAWING, A show() CALL IS REQUIRED TO UPDATE THE MATRIX!
+  
+  matrix.show(); // Copy data to matrix buffers
 }
 
 void loop(void) {
-	Serial.print("Refresh FPS = ~");
-	Serial.println(matrix.getFrameCount());
-	Serial.println(matrix.height());
-	Serial.println(matrix.width());
-	delay(1000);
+  Serial.print("Refresh FPS = ~");
+  Serial.println(matrix.getFrameCount());
+  Serial.println(matrix.height());
+  Serial.println(matrix.width());
+  delay(1000);
 }
