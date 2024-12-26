@@ -11,7 +11,9 @@ uint8_t oePin      = 16;
 // Matrix configuration
 #define WIDTH 128  // Adjust for your LED matrix size
 #define HEIGHT 64  // Adjust for your LED matrix size (but see below for address line value)
-#define DELAY_TIME 5     // Number of mSec to delay between loops
+#define DELAY_TIME 0    // Number of mSec to delay between loops
+#define MAX_BRIGHT 255   // Maximum brightness value per pixel
+#define NUM_STARS 400	 // How many stars to work with in the array (not necessarily visible!)
 
 #if HEIGHT == 16
 #define NUM_ADDR_PINS 3
@@ -21,10 +23,9 @@ uint8_t oePin      = 16;
 #define NUM_ADDR_PINS 5
 #endif
 
-Adafruit_Protomatter matrix(WIDTH, 1, 1, rgbPins, NUM_ADDR_PINS, addrPins, clockPin, latchPin, oePin, false);
+Adafruit_Protomatter matrix(WIDTH, 4, 1, rgbPins, NUM_ADDR_PINS, addrPins, clockPin, latchPin, oePin, false);
 
 // Star properties
-#define NUM_STARS 50
 struct Star {
   float x;
   float y;
@@ -33,7 +34,7 @@ struct Star {
 Star stars[NUM_STARS];
 
 // Animation parameters
-float speed = 0.1;
+float speed = 0.2;
 
 void setup() {
   Serial.begin(115200);
@@ -65,7 +66,7 @@ void loop() {
 
     // Draw the star if it's within bounds
     if (screenX >= 0 && screenX < WIDTH && screenY >= 0 && screenY < HEIGHT) {
-      int brightness = 255 - (stars[i].z * 255 / WIDTH);
+      int brightness = MAX_BRIGHT - ((stars[i].z * MAX_BRIGHT) / WIDTH);
       uint16_t color = matrix.color565(brightness, brightness, brightness);
       matrix.drawPixel(screenX, screenY, color);
     }
@@ -85,5 +86,5 @@ void loop() {
   matrix.show();
 
   // Small delay to control the animation speed
-  delay(30);
+  delay(DELAY_TIME);
 }
