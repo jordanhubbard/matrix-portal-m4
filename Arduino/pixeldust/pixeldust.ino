@@ -13,24 +13,16 @@ or "doublebuffer" for animation basics.
 #include <Adafruit_PixelDust.h>   // For sand simulation
 #include <Adafruit_Protomatter.h> // For RGB matrix
 
-// Set to my dual 64x64 panel display
+// Set to a single 64x64 panel display
 #define HEIGHT  64 // Matrix height (pixels) - SET TO 64 FOR 64x64 MATRIX!
 #define WIDTH   64 // Matrix width (pixels)
-#define MAX_FPS 45 // Maximum redraw rate, frames/second
+#define MAX_FPS 60 // Maximum redraw rate, frames/second
 
-#if defined(_VARIANT_MATRIXPORTAL_M4_) // MatrixPortal M4
 uint8_t rgbPins[]  = {7, 8, 9, 10, 11, 12};
 uint8_t addrPins[] = {17, 18, 19, 20, 21};
 uint8_t clockPin   = 14;
 uint8_t latchPin   = 15;
 uint8_t oePin      = 16;
-#else // MatrixPortal ESP32-S3
-uint8_t rgbPins[]  = {42, 41, 40, 38, 39, 37};
-uint8_t addrPins[] = {45, 36, 48, 35, 21};
-uint8_t clockPin   = 2;
-uint8_t latchPin   = 47;
-uint8_t oePin      = 14;
-#endif
 
 #if HEIGHT == 16
 #define NUM_ADDR_PINS 3

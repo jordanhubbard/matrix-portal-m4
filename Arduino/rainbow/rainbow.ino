@@ -8,9 +8,9 @@ uint8_t clockPin   = 14;
 uint8_t latchPin   = 15;
 uint8_t oePin      = 16;
 
-// This is my dual 64x64 display (tiled left to right)
+// Height and width of display(s)
 #define HEIGHT 64
-#define WIDTH 128
+#define WIDTH  64
 
 #if HEIGHT == 16
 #define NUM_ADDR_PINS 3

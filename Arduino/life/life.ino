@@ -8,7 +8,7 @@ uint8_t latchPin   = 15;
 uint8_t oePin      = 16;
 
 // Matrix configuration
-#define WIDTH 128  // Adjust for your LED matrix size
+#define WIDTH  64  // Adjust for your LED matrix size
 #define HEIGHT 64  // Adjust for your LED matrix size (but see below for address line value)
 #define DELAY_TIME 5     // Number of mSec to delay between loops
 #define MAX_GENCOUNT 500 // How many generations to get to before resetting to prevent "dead screen"
