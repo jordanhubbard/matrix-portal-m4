@@ -1,0 +1,16 @@
+# Build dependencies for the checked-in Arduino sketches.
+# Versions were read from upstream GitHub library.properties files on 2026-06-06.
+Adafruit Protomatter@1.7.1
+Adafruit GFX Library@1.12.6
+Adafruit LIS3DH@1.3.0
+Adafruit PixelDust@1.1.3
+Adafruit BusIO@1.17.4
+Adafruit Unified Sensor@1.1.15
+# GitHub library.properties reported 2.2.2, but Arduino Library Manager served
+# 2.2.0 when this manifest was tested with arduino-cli 1.5.1.
+AnimatedGIF@2.2.0
+Adafruit SPIFlash@5.1.1
+Adafruit TinyUSB Library@3.7.7
+Adafruit NeoPixel@1.15.5
+SdFat - Adafruit Fork@2.3.103
+MIDI Library@5.0.2

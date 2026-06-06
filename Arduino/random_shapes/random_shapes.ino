@@ -28,6 +28,8 @@ float angle = 0;
 float scale = 1.0;
 int hue = 0;
 
+uint16_t hsvToRgb565(uint8_t h, uint8_t s, uint8_t v);
+
 void setup() {
   Serial.begin(9600);
 

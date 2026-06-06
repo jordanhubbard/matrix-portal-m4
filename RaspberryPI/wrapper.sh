@@ -1,2 +1,2 @@
 #!/bin/sh
-sudo $* --led-cols=64 --led-rows=64 
+sudo "$@" --led-cols=64 --led-rows=64

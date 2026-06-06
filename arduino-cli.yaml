@@ -1,0 +1,11 @@
+board_manager:
+  additional_urls:
+    - https://adafruit.github.io/arduino-board-index/package_adafruit_index.json
+
+directories:
+  data: .arduino/data
+  downloads: .arduino/downloads
+  user: .arduino/user
+
+library:
+  enable_unsafe_install: false

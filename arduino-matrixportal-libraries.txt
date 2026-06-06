@@ -1,0 +1,7 @@
+# Optional MatrixPortal M4 Arduino guide libraries that are not required by the
+# checked-in sketches today, but are commonly needed for networked or image
+# reader MatrixPortal projects. Versions were read from upstream GitHub
+# library.properties files on 2026-06-06.
+WiFiNINA_-_Adafruit_Fork@1.6.1
+ArduinoJson@7.4.2
+Adafruit ImageReader Library@2.10.0
