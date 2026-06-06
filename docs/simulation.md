@@ -3,10 +3,11 @@
 The useful split for this repository is:
 
 - Repository validation: `make test`
-- Real cross-build verification only: `make arduino-test`
-- Local simulator IDE and example picker: `make sim-run`
-- Direct visual preview: `make sim-run SKETCH=Arduino/rainbow/rainbow.ino`
-- Hardware deployment: `make arduino-upload SKETCH=... PORT=/dev/cu...`
+- Real cross-build verification only: `make build`
+- Local simulator IDE and example picker: `make run`
+- Direct visual preview: `make run SKETCH=Arduino/rainbow/rainbow.ino`
+- 32x32 sign preview: `make run SKETCH=Arduino/pacman_demo/pacman_demo.ino PANEL_COUNT=4 PANEL_WIDTH=32 PANEL_HEIGHT=32`
+- Hardware deployment: `make upload SKETCH=... PORT=/dev/cu...`
 
 ## Simulator survey
 
@@ -46,14 +47,16 @@ small compatibility stubs:
 - `WiFiNINA` provides a minimal connected-status stub for simple AirLift checks.
 
 This does not replace hardware testing. It gives fast local feedback for display
-logic and animation changes before cross-compiling and uploading.
+logic and animation changes before cross-compiling and uploading. The default
+virtual panel size is 32x32 because many sign builds chain two to four 32x32
+modules in a row.
 
 ## Matrix Portal hardware model
 
 The emulator models the built-in hardware surfaces from the Matrix Portal M4
 guide that are useful for local sketch development:
 
-- HUB75 matrix output through editable virtual panels.
+- HUB75 matrix output through editable 32x32 or 64x64 virtual panels.
 - LIS3DH accelerometer on I2C address `0x19`.
 - UP/DOWN buttons on Arduino pins `2` and `3`, active low.
 - RGB status NeoPixel on Arduino pin `4`.
@@ -70,19 +73,40 @@ The preview window treats the sketch framebuffer as the logical output coming
 from Protomatter and then lets you arrange physical panels on top of it. It
 also provides a small SDL-native IDE shell around the running sketch.
 
+The launcher IDE has two explicit destination modes:
+
+- `Simulator` compiles and launches the selected sketch in the SDL preview.
+  Serial output goes to the simulated I/O drawer and command log, and Matrix
+  Portal sensors, buttons, and analog inputs are simulated.
+- `Hardware` compiles and uploads the selected sketch to the selected USB
+  device. The USB device and baud rate are selected from dropdowns in the
+  configuration panel. In this mode, the serial drawer represents the physical
+  serial monitor and sensor simulation controls are disabled because the real
+  board is providing those inputs.
+
+The launcher IDE also has display geometry controls for the code that will be
+built next. Select 1-4 chained panels and a panel size of 32x16, 32x32, 64x32,
+or 64x64. Load, Verify, and Upload pass those choices through Make as
+`PANEL_COUNT`, `PANEL_WIDTH`, and `PANEL_HEIGHT`; the Makefile mirrors them to
+`SIGN_PANEL_COUNT`, `SIGN_PANEL_WIDTH`, and `SIGN_PANEL_HEIGHT` for shared sign
+examples. `SIM_PANEL` is derived from the selected panel size, so it only
+describes the simulator's physical module dimensions.
+
 Toolbar buttons and keys:
 
 - Hover over any icon button for an English tooltip.
 - The Stop button closes the current simulator or IDE window.
-- In the IDE launcher, select a sketch, then use Run, Verify, Upload, Setup,
-  Ports, Monitor, Open Sketch, or Open Log from the toolbar.
+- In the IDE launcher, select a sketch, choose Simulator or Hardware
+  destination mode, then use Load, Verify, Upload, Install, Ports, Serial, Open
+  Sketch, or Open Log from the toolbar.
 - `Enter` runs the selected sketch. `V`, `U`, `M`, and `O` trigger verify,
   upload, serial monitor, and open-sketch actions.
+- `Tab` toggles the IDE destination between Simulator and Hardware.
 - The examples button, or `E`, opens the sketch picker. Choosing an example
   rebuilds and relaunches the simulator with that sketch.
-- The verify button, or `V`, runs `make arduino-compile SKETCH=current`.
+- The verify button, or `V`, runs `make build SKETCH=current`.
 - The upload button, or `U`, opens a serial-port picker and then runs
-  `make arduino-upload SKETCH=current PORT=selected`.
+  `make upload SKETCH=current PORT=selected`.
 - The open-sketch button, or `O`, opens the current `.ino` file with macOS
   `open`.
 - Drag a panel to move it.
@@ -90,7 +114,7 @@ Toolbar buttons and keys:
 - `Delete` removes the selected panel.
 - `R` rotates the selected panel by 90 degrees.
 - `F` fits panels into a row.
-- `P` toggles the default new-panel size between 64x64 and 32x32.
+- `P` toggles the default new-panel size between 32x32 and 64x64.
 - `S` saves the current arrangement to `sim-panel-layout.txt`.
 - `L` reloads that arrangement.
 - `G` toggles the grid.
@@ -112,31 +136,43 @@ accelerometer vector, and A0-A4 analog levels.
 Open the simulator IDE and SDL-native example file browser:
 
 ```sh
-make sim-run
+make run
 ```
 
 Build every preview app:
 
 ```sh
-make sim-build-all
+make test
 ```
 
 Run one preview:
 
 ```sh
-make sim-run SKETCH=Arduino/stars/stars.ino
+make run SKETCH=Arduino/stars/stars.ino
+```
+
+Run the self-playing Pac-Man-style sign demo:
+
+```sh
+make run SKETCH=Arduino/pacman_demo/pacman_demo.ino
+```
+
+Run the same sign demo as a two-panel 64x32 sign:
+
+```sh
+make run SKETCH=Arduino/pacman_demo/pacman_demo.ino PANEL_COUNT=2 PANEL_WIDTH=64 PANEL_HEIGHT=32
 ```
 
 Run the Matrix Portal built-in device demo:
 
 ```sh
-make sim-run SKETCH=Arduino/portal_controls/portal_controls.ino
+make run SKETCH=Arduino/portal_controls/portal_controls.ino
 ```
 
 Run for a fixed number of rendered frames:
 
 ```sh
-make sim-run SKETCH=Arduino/life/life.ino SIM_MAX_FRAMES=300
+make run SKETCH=Arduino/life/life.ino SIM_MAX_FRAMES=300
 ```
 
 If SDL2 is missing on macOS:

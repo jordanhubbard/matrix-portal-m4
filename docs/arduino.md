@@ -6,30 +6,46 @@ All Arduino CLI package data and sketchbook libraries are kept under the local
 
 ## Targets
 
-- `make arduino-install-cli ARDUINO_CLI=.tools/bin/arduino-cli` installs the
-  Arduino CLI under `.tools/bin` for a repo-local setup. After that, the
-  Makefile uses the local binary automatically.
-- `make arduino-install` installs the Adafruit SAMD core and the pinned
-  libraries needed by the checked-in sketches.
-- `make setup` is the conventional alias for `make arduino-install`.
-- `make arduino-compile` compiles every `Arduino/*/*.ino` sketch.
-- `make arduino-compile SKETCH=Arduino/rainbow/rainbow.ino` compiles one
-  sketch.
-- `make arduino-test` cross-compiles Arduino sketches without installing or
-  updating dependencies.
+- `make install` installs the repo-local Arduino CLI under `.tools/bin`, then
+  installs the Adafruit SAMD core and pinned libraries under `.arduino/`.
+- `make build` compiles every `Arduino/*/*.ino` sketch.
+- `make build SKETCH=Arduino/rainbow/rainbow.ino` compiles one sketch.
+- `make upload SKETCH=Arduino/rainbow/rainbow.ino PORT=/dev/cu...` compiles
+  and uploads a sketch to a connected Matrix Portal M4.
+- `make ports` lists connected boards and serial ports.
+- `make clean` removes generated build outputs.
+- `make run` starts the local SDL IDE/simulator. It does not upload to hardware.
 - `make test` runs host checks, Arduino cross-builds, and SDL preview builds.
-- `make ci` is an alias for `make test`.
-- `make arduino-install-matrixportal-libs` installs optional MatrixPortal guide
-  libraries for WiFi and image-reader projects.
-- `make arduino-clean` removes generated Arduino build products.
-- `make arduino-ports` lists connected boards and serial ports.
-- `make arduino-upload SKETCH=Arduino/rainbow/rainbow.ino PORT=/dev/cu...`
-  uploads a sketch to a connected Matrix Portal M4.
 
 The Makefile discovers every `Arduino/*/*.ino` sketch, including new local demo
-directories, so `make arduino-compile` validates all code intended for upload.
+directories, so `make build` validates all code intended for upload.
 Dependency installation targets are intentionally separate from test targets, so
 routine validation does not mutate the local Arduino package state.
+
+Sketches choose their own logical matrix width and height. Square demos mostly
+use 64x64, while sign-oriented demos use the selected panel chain geometry to
+set a wider framebuffer.
+
+The sign-oriented examples share `Arduino/sign_common/SignDisplay.h` for the
+Matrix Portal pin map, 5x7 text drawing, colors, and panel-chain setup. The
+Makefile adds that directory to both Arduino CLI and SDL preview builds.
+
+Display geometry can be selected in the SDL IDE before loading, verifying, or
+uploading. Scripted builds use the same inputs:
+
+```sh
+make build SKETCH=Arduino/weather_dashboard/weather_dashboard.ino PANEL_COUNT=2 PANEL_WIDTH=64 PANEL_HEIGHT=32
+make upload SKETCH=Arduino/weather_dashboard/weather_dashboard.ino PORT=/dev/cu.usbmodem... PANEL_COUNT=4 PANEL_WIDTH=32 PANEL_HEIGHT=32
+```
+
+The Makefile passes those values as `PANEL_COUNT`, `PANEL_WIDTH`,
+`PANEL_HEIGHT`, `SIGN_PANEL_COUNT`, `SIGN_PANEL_WIDTH`, and
+`SIGN_PANEL_HEIGHT` compiler defines. The simulator's `SIM_PANEL` setting is
+derived from `PANEL_WIDTH` and `PANEL_HEIGHT`.
+
+This repository does not install the official Arduino IDE application. Compile
+and upload use `arduino-cli`; the local IDE mentioned in the README is the SDL
+simulator shell built by `make run`.
 
 ## Dependency sources
 
@@ -55,6 +71,9 @@ The optional MatrixPortal guide manifest also includes:
 - ArduinoJson: https://github.com/bblanchon/ArduinoJson
 - Adafruit ImageReader: https://github.com/adafruit/Adafruit_ImageReader
 
+Install those optional guide libraries with `make install-matrixportal-libs`
+only when a project needs them.
+
 The board target is from the Adafruit SAMD core:
 
 - https://github.com/adafruit/ArduinoCore-samd
@@ -68,6 +87,6 @@ Refresh the versions by reading each upstream `library.properties`, then update
 After updating, run:
 
 ```sh
-make setup
+make install
 make test
 ```

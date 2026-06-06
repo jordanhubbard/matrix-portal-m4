@@ -58,8 +58,8 @@ bool showGrid = true;
 bool dragging = false;
 OverlayMode overlayMode = OverlayMode::None;
 int scale = 8;
-int defaultPanelWidth = 64;
-int defaultPanelHeight = 64;
+int defaultPanelWidth = 32;
+int defaultPanelHeight = 32;
 int logicalWidth = 64;
 int logicalHeight = 64;
 int selectedPanel = 0;
@@ -274,22 +274,32 @@ void runAsync(const std::string &command) {
   }
 }
 
+std::string makeGeometryArgs() {
+  int panelCount = defaultPanelWidth > 0
+    ? std::max(1, (logicalWidth + defaultPanelWidth - 1) / defaultPanelWidth)
+    : 1;
+  return " PANEL_COUNT=" + shellQuote(std::to_string(panelCount)) +
+         " PANEL_WIDTH=" + shellQuote(std::to_string(defaultPanelWidth)) +
+         " PANEL_HEIGHT=" + shellQuote(std::to_string(defaultPanelHeight)) +
+         " SIM_PANEL=" + shellQuote(std::to_string(defaultPanelWidth) + "x" + std::to_string(defaultPanelHeight));
+}
+
 void relaunchSketch(const std::string &sketch) {
   setStatus("Launching " + sketchDisplayName(sketch));
-  runAsync("make sim-run SKETCH=" + shellQuote(sketch) +
-           " SIM_PANEL=" + shellQuote(std::to_string(defaultPanelWidth) + "x" + std::to_string(defaultPanelHeight)) +
+  runAsync("make run SKETCH=" + shellQuote(sketch) +
+           makeGeometryArgs() +
            " SIM_LAYOUT=" + shellQuote(layoutPath));
   keepRunning = false;
 }
 
 void verifySketch(const std::string &sketch) {
   setStatus("Verify started for " + sketchDisplayName(sketch) + " (see /tmp/matrix-portal-sim-command.log)");
-  runAsync("make arduino-compile SKETCH=" + shellQuote(sketch));
+  runAsync("make build SKETCH=" + shellQuote(sketch) + makeGeometryArgs());
 }
 
 void uploadSketch(const std::string &sketch, const std::string &port) {
   setStatus("Upload started to " + port + " (see /tmp/matrix-portal-sim-command.log)");
-  runAsync("make arduino-upload SKETCH=" + shellQuote(sketch) + " PORT=" + shellQuote(port));
+  runAsync("make upload SKETCH=" + shellQuote(sketch) + " PORT=" + shellQuote(port) + makeGeometryArgs());
 }
 
 void openSketch(const std::string &sketch) {
@@ -453,12 +463,12 @@ void fitPanelsInRow() {
 }
 
 void togglePanelSize() {
-  if (defaultPanelWidth == 64 && defaultPanelHeight == 64) {
-    defaultPanelWidth = 32;
-    defaultPanelHeight = 32;
-  } else {
+  if (defaultPanelWidth == 32 && defaultPanelHeight == 32) {
     defaultPanelWidth = 64;
     defaultPanelHeight = 64;
+  } else {
+    defaultPanelWidth = 32;
+    defaultPanelHeight = 32;
   }
   updateWindowTitle();
 }
@@ -613,7 +623,7 @@ void rebuildButtons() {
     {SDL_Rect{0, 0, 30, 30}, ToolAction::Delete, "Delete Panel: remove the selected virtual panel"},
     {SDL_Rect{0, 0, 30, 30}, ToolAction::Rotate, "Rotate Panel: rotate the selected panel by 90 degrees"},
     {SDL_Rect{0, 0, 30, 30}, ToolAction::FitRow, "Fit Row: arrange panels side by side in one row"},
-    {SDL_Rect{0, 0, 30, 30}, ToolAction::ToggleSize, "Panel Size: toggle new panels between 64x64 and 32x32"},
+    {SDL_Rect{0, 0, 30, 30}, ToolAction::ToggleSize, "Panel Size: toggle new panels between 32x32 and 64x64"},
     {SDL_Rect{0, 0, 30, 30}, ToolAction::Save, "Save Layout: write the current panel arrangement to disk"},
     {SDL_Rect{0, 0, 30, 30}, ToolAction::Load, "Load Layout: reload the saved panel arrangement"},
     {SDL_Rect{0, 0, 30, 30}, ToolAction::Grid, "Grid: show or hide the panel alignment grid"}

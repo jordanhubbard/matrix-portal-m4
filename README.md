@@ -1,92 +1,198 @@
 # matrix-portal-m4
 
-Small Matrix Portal M4 projects for HUB75 RGB LED matrices.
+Arduino and local-preview projects for an Adafruit Matrix Portal M4 driving
+HUB75 RGB LED matrices.
 
-The primary target is an Adafruit Matrix Portal M4, which is a SAMD51 board
-with MatrixPortal pin mapping and an onboard LIS3DH accelerometer. Most Arduino
-sketches in this repository are configured for one 64x64 panel.
+The main workflow is now Makefile-driven:
 
-## Contents
+- `arduino-cli` compiles and uploads sketches for the Matrix Portal M4.
+- A repo-local SDL2 simulator/IDE previews sketches on the host before hardware
+  upload.
+- Display geometry is selected in the simulator IDE or through Make variables,
+  then passed into sketches as compile-time panel-count and panel-size defines.
+- Build products, Arduino package data, and optional local tools stay inside
+  ignored repo directories.
 
-- `Arduino/` - Arduino sketches using Adafruit Protomatter.
-- `CircuitPython/Life/` - a CircuitPython Conway's Game of Life port for two
-  64x64 panels.
-- `RaspberryPI/` - helper wrappers for the `rpi-rgb-led-matrix` submodule.
+This repository does not install the official Arduino IDE app. The "IDE" here
+is the local SDL simulator shell launched by `make run`; hardware build and
+upload are handled by `arduino-cli`.
 
-Current Arduino demos include fire, Life, maze, ocean waves, PixelDust,
-plasma, rainbow, random shapes, a Matrix Portal controls demo, rotating sand,
-simple hardware test, and starfield.
+## Quick Start
 
-## Arduino quick start
-
-Install `arduino-cli`, then let the Makefile install the Adafruit SAMD core and
-the pinned libraries used by the checked-in sketches:
+Install the repo-local Arduino CLI, the Adafruit SAMD board core, and pinned
+sketch libraries:
 
 ```sh
-make arduino-install
+make install
+```
+
+Compile every Arduino sketch for the Matrix Portal M4:
+
+```sh
+make build
+```
+
+Open the local SDL simulator IDE:
+
+```sh
+make run
+```
+
+Upload one sketch to hardware:
+
+```sh
+make ports
+make upload SKETCH=Arduino/life/life.ino PORT=/dev/cu.usbmodem...
+```
+
+Run the full non-upload validation suite:
+
+```sh
 make test
 ```
 
-For a repo-local CLI install instead of a global install:
+## Public Targets
 
-```sh
-make arduino-install-cli ARDUINO_CLI=.tools/bin/arduino-cli
-make setup
-make test
+The normal commands are intentionally small:
+
+```text
+make install   install repo-local Arduino CLI, board core, and libraries
+make build     compile all Arduino sketches, or SKETCH=... for one
+make upload    compile and upload SKETCH=... to PORT=...
+make ports     list connected Arduino serial ports
+make run       open the SDL simulator IDE, or SKETCH=... for one preview
+make test      run host checks, Arduino cross-builds, and SDL preview builds
+make clean     remove generated build outputs
+make distclean remove build outputs, .tools/, and .arduino/
+make doctor    print active toolchain and board configuration
 ```
 
-To build a single sketch:
+Examples:
 
 ```sh
-make arduino-compile SKETCH=Arduino/life/life.ino
+make build SKETCH=Arduino/rainbow/rainbow.ino
+make run SKETCH=Arduino/pacman_demo/pacman_demo.ino
+make run SKETCH=Arduino/stars/stars.ino
+make run SKETCH=Arduino/life/life.ino SIM_MAX_FRAMES=300
+make run PANEL_COUNT=2 PANEL_WIDTH=32 PANEL_HEIGHT=32
+make upload SKETCH=Arduino/weather_dashboard/weather_dashboard.ino PORT=/dev/cu.usbmodem... PANEL_COUNT=3 PANEL_WIDTH=32 PANEL_HEIGHT=32
 ```
 
-To upload a sketch over serial:
+## Prerequisites
+
+For Arduino hardware builds, `make install` downloads `arduino-cli` into
+`.tools/bin` and installs Arduino package data and libraries under `.arduino/`
+using `arduino-cli.yaml`.
+
+For the simulator on macOS, install SDL2 if `make run` reports that
+`sdl2-config` is missing:
 
 ```sh
-make arduino-ports
-make arduino-upload SKETCH=Arduino/life/life.ino PORT=/dev/cu.usbmodem...
+brew install sdl2
 ```
 
-The default cross-build target is:
+Uploading requires a Matrix Portal M4 connected over USB. Use `make ports` to
+find the serial device name.
+
+## Arduino Sketches
+
+Sketches live under `Arduino/<name>/<name>.ino`. The Makefile discovers this
+layout automatically, so new sketches are included in `make build` and
+`make test` without editing the Makefile.
+
+Current sketches:
+
+- `breakout_demo` - self-playing brick breaker.
+- `clock_display` - sign clock and date-style display.
+- `fire` - flame animation.
+- `gif_player` - built-in animated image playback demo.
+- `life` - Conway's Game of Life.
+- `maze` - generated maze with animated traversal.
+- `ocean_waves` - layered wave animation.
+- `pacman_demo` - self-playing maze chase demo for 1-4 chained 32x32 panels.
+- `pixeldust` - accelerometer-driven particle demo.
+- `plasma` - procedural plasma pattern.
+- `pong_demo` - self-playing Pong.
+- `portal_controls` - Matrix Portal built-in controls and status demo.
+- `rainbow` - rainbow matrix test pattern.
+- `random_shapes` - animated shape drawing.
+- `rotating_sand` - PixelDust-style rotating sand.
+- `scrolling_text` - ticker-style text sign.
+- `simple_m4` - basic Matrix Portal hardware test.
+- `snake_demo` - self-playing Snake.
+- `stars` - starfield animation.
+- `tetris_demo` - falling-block attract-mode demo.
+- `vu_meter` - synthetic audio VU/spectrum display.
+- `weather_dashboard` - simulated weather dashboard.
+
+The default board target is:
 
 ```text
 adafruit:samd:adafruit_matrixportal_m4:cache=on,speed=120,opt=small,maxqspi=50,usbstack=arduino,debug=off
 ```
 
-Use `make doctor` to print the active target, dependency files, and discovered
-sketches. Use `make setup` for dependency installation and `make test` for the
-non-upload validation suite: host checks, Arduino cross-builds, and SDL preview
-builds. `make arduino-test` only cross-compiles Arduino sketches; it does not
-install or update dependencies.
+## Local Simulator IDE
 
-## Local SDL preview
+The `sim/` directory builds a native SDL2 preview harness. It compiles sketches
+as host C++ and shadows selected Arduino, Protomatter, LIS3DH, PixelDust,
+NeoPixel, and WiFiNINA APIs with local stubs.
 
-The `sim/` harness builds a local macOS SDL2 application for quick visual
-previews of Arduino sketches before uploading to hardware. With no `SKETCH`
-argument it opens a small all-in-one SDL IDE for choosing examples, installing
-dependencies, running the simulator, verifying, uploading over serial, opening
-the command log, starting a serial monitor, and arranging virtual LED panels:
+The simulator is useful for display logic and interaction checks before upload.
+It is not a cycle-accurate SAMD51 emulator and does not replace hardware
+testing.
 
-```sh
-make sim-build-all
-make sim-run
-```
+With no `SKETCH`, `make run` opens the simulator IDE. The right-side
+configuration panel has an explicit destination mode:
 
-This is a host preview layer, not a cycle-accurate SAMD51 hardware emulator.
-It replaces Arduino, Protomatter, LIS3DH, and PixelDust APIs with local stubs
-and renders the matrix framebuffer through SDL2. The preview also simulates
-Matrix Portal built-ins including the LIS3DH accelerometer, UP/DOWN buttons,
-D13 LED, status NeoPixel, A0-A4 analog reads, and a minimal WiFiNINA status
-stub. Hover over any icon button in the simulator for an English tooltip.
-Use `make sim-run SKETCH=Arduino/rainbow/rainbow.ino` when you want to bypass
-the IDE picker and run one sketch directly.
+- `Simulator` loads the selected sketch into the SDL preview with emulated
+  serial I/O, buttons, analog inputs, and sensor values.
+- `Hardware` loads the selected sketch to the selected USB device. The USB
+  device and baud rate are selected in first-class dropdowns, and the I/O drawer
+  switches from emulated serial to the physical serial monitor.
 
-## Hardware notes
+The same panel has first-class display geometry controls. Choose the number of
+chained panels and each panel's pixel size before loading, verifying, or
+uploading. The IDE passes those choices as `PANEL_COUNT`, `PANEL_WIDTH`,
+`PANEL_HEIGHT`, `SIGN_PANEL_COUNT`, `SIGN_PANEL_WIDTH`, and
+`SIGN_PANEL_HEIGHT` build defines, so sign sketches compile for the selected
+matrix width instead of relying on a hardcoded `SIM_PANEL` default.
 
-For 64x64 panels, make sure the panel's address E line is connected as required
-by the Matrix Portal M4 hardware. The sketches use the MatrixPortal M4 pin
-mapping from Adafruit's Protomatter examples:
+When Hardware mode is selected, sensor simulation controls are shown as disabled
+because the physical Matrix Portal sensors and inputs are in the loop. Hover
+over toolbar buttons for tooltips.
+
+The simulated Matrix Portal surface includes:
+
+- HUB75 framebuffer output with editable panel layout and selectable 32x16,
+  32x32, 64x32, or 64x64 module geometry.
+- LIS3DH accelerometer input.
+- UP/DOWN buttons on pins `2` and `3`.
+- D13 LED and RGB status NeoPixel.
+- A0-A4 analog inputs.
+- Minimal WiFiNINA connected-status stub.
+
+## Repository Layout
+
+- `Arduino/` - Matrix Portal M4 Arduino sketches.
+- `Arduino/sign_common/` - shared sign-demo font, color, and matrix helpers.
+- `sim/` - SDL2 simulator IDE and compatibility stubs.
+- `docs/arduino.md` - Arduino CLI dependency and pin notes.
+- `docs/simulation.md` - simulator behavior and controls.
+- `CircuitPython/Life/` - older CircuitPython Life port kept for reference.
+- `RaspberryPI/` - helper scripts for the `rpi-rgb-led-matrix` submodule.
+- `.arduino/` - repo-local Arduino package data, ignored by Git.
+- `.tools/` - optional repo-local tool binaries, ignored by Git.
+
+## Hardware Notes
+
+The sign-oriented demos, such as `pacman_demo`, are built for the selected
+panel chain geometry. The default is four 32x32 HUB75 modules, but the IDE and
+Make variables can build the same sketches for 1-4 panels and 16-, 32-, or
+64-pixel-high modules. Older square demos mostly keep their own logical 64x64
+framebuffer and ignore the sign geometry defines.
+
+All sketches use the Matrix Portal M4 pin mapping from Adafruit Protomatter
+examples:
 
 ```cpp
 uint8_t rgbPins[]  = {7, 8, 9, 10, 11, 12};
@@ -96,12 +202,20 @@ uint8_t latchPin   = 15;
 uint8_t oePin      = 16;
 ```
 
+For 64x64 panels, make sure the panel address E line is connected as required
+by the Matrix Portal M4 hardware.
+
 ## Maintenance
 
 Pinned Arduino libraries live in `arduino-libraries.txt`. Optional libraries
-from Adafruit's MatrixPortal M4 Arduino guide live in
-`arduino-matrixportal-libraries.txt`.
+from Adafruit's MatrixPortal M4 guide live in
+`arduino-matrixportal-libraries.txt`; install them with
+`make install-matrixportal-libs` only when a project needs WiFi or image-reader
+support.
 
-The Arduino CLI configuration is repo-local in `arduino-cli.yaml`; package and
-library installs go under `.arduino/`, and optional local tools go under
-`.tools/`. Both directories are intentionally ignored by Git.
+After changing dependency pins or sketch code, run:
+
+```sh
+make install
+make test
+```
