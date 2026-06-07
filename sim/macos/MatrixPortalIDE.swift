@@ -43,6 +43,26 @@ private func baudConstant(_ baud: String) -> speed_t {
     }
 }
 
+private func containsWorkspace(_ url: URL) -> Bool {
+    return FileManager.default.fileExists(atPath: url.appendingPathComponent("Makefile").path) &&
+        FileManager.default.fileExists(atPath: url.appendingPathComponent("Arduino").path)
+}
+
+private func resolveWorkspaceRoot() -> URL {
+    let current = URL(fileURLWithPath: FileManager.default.currentDirectoryPath)
+    if containsWorkspace(current) {
+        return current
+    }
+
+    let bundle = Bundle.main.bundleURL
+    let candidates = [
+        bundle.deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent(),
+        bundle.deletingLastPathComponent(),
+        bundle
+    ]
+    return candidates.first(where: containsWorkspace) ?? current
+}
+
 private final class AppDelegate: NSObject,
                                  NSApplicationDelegate,
                                  NSWindowDelegate,
@@ -82,6 +102,7 @@ private final class AppDelegate: NSObject,
     private var serialTimer: Timer?
     private var activeProcess: Process?
     private var activeInputPipe: Pipe?
+    private var workspaceRoot = resolveWorkspaceRoot()
     private var scale = 8
     private var layoutPath = "sim-panel-layout.txt"
     private var simControlPath = "build/sim/sim-control.env"
@@ -572,7 +593,7 @@ private final class AppDelegate: NSObject,
     }
 
     private func refreshSketches() {
-        let root = URL(fileURLWithPath: FileManager.default.currentDirectoryPath).appendingPathComponent("Arduino")
+        let root = workspaceRoot.appendingPathComponent("Arduino")
         let directories = (try? FileManager.default.contentsOfDirectory(at: root, includingPropertiesForKeys: [.isDirectoryKey])) ?? []
         sketches = directories.compactMap { directory -> String? in
             let values = try? directory.resourceValues(forKeys: [.isDirectoryKey])
@@ -650,7 +671,7 @@ private final class AppDelegate: NSObject,
         appendConsoleLine("$ make \(arguments.joined(separator: " "))")
 
         let process = Process()
-        process.currentDirectoryURL = URL(fileURLWithPath: FileManager.default.currentDirectoryPath)
+        process.currentDirectoryURL = workspaceRoot
         process.executableURL = URL(fileURLWithPath: "/usr/bin/make")
         process.arguments = ["--no-print-directory"] + arguments
 
@@ -725,9 +746,8 @@ private final class AppDelegate: NSObject,
         setStatus("Running \(sketchName(sketch))")
 
         let process = Process()
-        let workingDirectory = URL(fileURLWithPath: FileManager.default.currentDirectoryPath)
-        process.currentDirectoryURL = workingDirectory
-        process.executableURL = workingDirectory.appendingPathComponent(executable)
+        process.currentDirectoryURL = workspaceRoot
+        process.executableURL = workspaceRoot.appendingPathComponent(executable)
         process.arguments = arguments
 
         let outputPipe = Pipe()
@@ -890,7 +910,9 @@ private final class AppDelegate: NSObject,
         guard simAutoTiltButton != nil else {
             return
         }
-        let url = URL(fileURLWithPath: simControlPath)
+        let url = simControlPath.hasPrefix("/")
+            ? URL(fileURLWithPath: simControlPath)
+            : workspaceRoot.appendingPathComponent(simControlPath)
         try? FileManager.default.createDirectory(at: url.deletingLastPathComponent(),
                                                  withIntermediateDirectories: true)
         let text = [
@@ -1078,7 +1100,7 @@ private final class AppDelegate: NSObject,
             setStatus("No sketch selected")
             return
         }
-        NSWorkspace.shared.open(URL(fileURLWithPath: sketch))
+        NSWorkspace.shared.open(workspaceRoot.appendingPathComponent(sketch))
         setStatus("Opened \(sketchName(sketch))")
     }
 
