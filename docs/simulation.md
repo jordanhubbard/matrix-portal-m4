@@ -4,7 +4,7 @@ The useful split for this repository is:
 
 - Repository validation: `make test`
 - Real cross-build verification only: `make build`
-- Local simulator IDE and example picker: `make run`
+- Native macOS simulator IDE and example picker: `make run`
 - Direct visual preview: `make run SKETCH=Arduino/rainbow/rainbow.ino`
 - 32x32 sign preview: `make run SKETCH=Arduino/pacman_demo/pacman_demo.ino PANEL_COUNT=4 PANEL_WIDTH=32 PANEL_HEIGHT=32`
 - Hardware deployment: `make upload SKETCH=... PORT=/dev/cu...`
@@ -14,7 +14,7 @@ The useful split for this repository is:
 Wokwi is the best-known Arduino-focused simulator and supports many boards and
 LED parts, but its documented hardware list does not include the SAMD51 Matrix
 Portal M4 or HUB75/Protomatter output. It is also primarily a hosted/web
-workflow, not a local macOS SDL app.
+workflow, not a local macOS app.
 
 SimulIDE is a local desktop electronics simulator that can run compiled Arduino
 firmware for supported MCU families. Its focus is circuit simulation for common
@@ -27,18 +27,17 @@ sensors, and buses. The tradeoff is that Matrix Portal M4 support would require
 custom SAMD51 and display peripheral modeling before it could show Protomatter
 output.
 
-simavr is useful for AVR Arduino firmware and can be paired with SDL frontends,
-but Matrix Portal M4 is a SAMD51 Cortex-M4 target, so simavr is not the right
-base for this board.
+simavr is useful for AVR Arduino firmware, but Matrix Portal M4 is a SAMD51
+Cortex-M4 target, so simavr is not the right base for this board.
 
 ## Practical path in this repo
 
-The `sim/` directory is a host-side SDL2 preview harness. It compiles Arduino
-sketches as native macOS C++ and shadows the hardware-specific headers with
-small compatibility stubs:
+The `sim/` directory is a host-side native preview harness. It compiles Arduino
+sketches as native macOS C++/Objective-C++ and shadows the hardware-specific
+headers with small compatibility stubs:
 
 - `Adafruit_Protomatter` stores a 64x64 RGB565 framebuffer and renders it with
-  SDL2 on `matrix.show()`.
+  CoreGraphics in an AppKit preview window on `matrix.show()`.
 - `Arduino.h` provides timing, random, GPIO, `digitalRead`, `digitalWrite`,
   `analogRead`, and `Serial` logging.
 - `Adafruit_LIS3DH` reads from the emulator's virtual accelerometer state.
@@ -67,58 +66,60 @@ guide that are useful for local sketch development:
 The emulator does not emulate SAMD51 instruction timing, QSPI flash contents,
 real TLS/network traffic, USB storage, or external STEMMA QT devices.
 
-## Simulator IDE
+## Native macOS IDE
 
-The preview window treats the sketch framebuffer as the logical output coming
-from Protomatter and then lets you arrange physical panels on top of it. It
-also provides a small SDL-native IDE shell around the running sketch.
+With no `SKETCH`, `make run` builds and launches the native Swift/AppKit IDE.
+It uses macOS controls for sketch selection, commands, destination mode, display
+geometry, USB port selection, baud selection, serial text I/O, and simulated
+device controls. Direct sketch previews use an AppKit/CoreGraphics window for
+the HUB75 framebuffer.
 
-The launcher IDE has two explicit destination modes:
+The IDE has two explicit destination modes:
 
-- `Simulator` compiles and launches the selected sketch in the SDL preview.
-  Serial output goes to the simulated I/O drawer and command log, and Matrix
-  Portal sensors, buttons, and analog inputs are simulated.
+- `Simulator` compiles and launches the selected sketch in the native preview.
+  Build output and sketch serial output stream into the serial text pane, and
+  Matrix Portal sensors, buttons, and analog inputs are simulated.
 - `Hardware` compiles and uploads the selected sketch to the selected USB
   device. The USB device and baud rate are selected from dropdowns in the
-  configuration panel. In this mode, the serial drawer represents the physical
-  serial monitor and sensor simulation controls are disabled because the real
-  board is providing those inputs.
+  configuration panel. In this mode, the serial drawer opens the physical USB
+  serial port and sensor simulation controls are disabled because the real board
+  is providing those inputs.
 
-The launcher IDE also has display geometry controls for the code that will be
-built next. Select 1-4 chained panels and a panel size of 32x16, 32x32, 64x32,
-or 64x64. Load, Verify, and Upload pass those choices through Make as
+The serial drawer is an in-app text window, not just connection metadata. It has
+RX scrollback and a TX input line. Simulator mode uses an emulated loopback
+serial endpoint; Hardware mode opens the selected `/dev/cu...` device at the
+selected baud rate, displays incoming bytes, and writes the TX line when Enter
+is pressed.
+
+The IDE also has display geometry controls for the code that will be built
+next. Select 1-4 chained panels and a panel size of 32x16, 32x32, 64x32, or
+64x64. Load, Verify, and Upload pass those choices through Make as
 `PANEL_COUNT`, `PANEL_WIDTH`, and `PANEL_HEIGHT`; the Makefile mirrors them to
 `SIGN_PANEL_COUNT`, `SIGN_PANEL_WIDTH`, and `SIGN_PANEL_HEIGHT` for shared sign
 examples. `SIM_PANEL` is derived from the selected panel size, so it only
 describes the simulator's physical module dimensions.
 
-Toolbar buttons and keys:
+IDE controls:
 
-- Hover over any icon button for an English tooltip.
-- The Stop button closes the current simulator or IDE window.
-- In the IDE launcher, select a sketch, choose Simulator or Hardware
-  destination mode, then use Load, Verify, Upload, Install, Ports, Serial, Open
-  Sketch, or Open Log from the toolbar.
-- `Enter` runs the selected sketch. `V`, `U`, `M`, and `O` trigger verify,
-  upload, serial monitor, and open-sketch actions.
-- `Tab` toggles the IDE destination between Simulator and Hardware.
-- The examples button, or `E`, opens the sketch picker. Choosing an example
-  rebuilds and relaunches the simulator with that sketch.
-- The verify button, or `V`, runs `make build SKETCH=current`.
-- The upload button, or `U`, opens a serial-port picker and then runs
-  `make upload SKETCH=current PORT=selected`.
-- The open-sketch button, or `O`, opens the current `.ino` file with macOS
-  `open`.
+- Select a sketch in the native table and use Load, Verify, Upload, Stop,
+  Ports, or Open from the macOS toolbar or menus.
+- Load in Simulator mode launches `make run SKETCH=current` with the selected
+  geometry.
+- Load or Upload in Hardware mode runs `make upload SKETCH=current
+  PORT=selected` and reconnects the serial text pane after upload finishes.
+- The native serial pane shows RX scrollback and sends the TX line when Return
+  is pressed.
+
+Preview controls:
+
+- The direct preview window renders the matrix framebuffer and supports panel
+  layout editing from its toolbar:
 - Drag a panel to move it.
-- `A` adds a virtual panel.
-- `Delete` removes the selected panel.
-- `R` rotates the selected panel by 90 degrees.
-- `F` fits panels into a row.
-- `P` toggles the default new-panel size between 32x32 and 64x64.
-- `S` saves the current arrangement to `sim-panel-layout.txt`.
-- `L` reloads that arrangement.
-- `G` toggles the grid.
-- `+` and `-` zoom.
+- Add or delete a virtual panel.
+- Rotate the selected panel by 90 degrees.
+- Fit panels into a row.
+- Save or load `sim-panel-layout.txt`.
+- Toggle the grid and zoom the preview.
 
 Board controls:
 
@@ -128,12 +129,9 @@ Board controls:
 - `2` holds the DOWN button while pressed.
 - `[` and `]` adjust A0.
 
-The top strip also visualizes D13, the status NeoPixel, UP/DOWN button state,
-accelerometer vector, and A0-A4 analog levels.
-
 ## Commands
 
-Open the simulator IDE and SDL-native example file browser:
+Open the native macOS IDE and example browser:
 
 ```sh
 make run
@@ -173,10 +171,4 @@ Run for a fixed number of rendered frames:
 
 ```sh
 make run SKETCH=Arduino/life/life.ino SIM_MAX_FRAMES=300
-```
-
-If SDL2 is missing on macOS:
-
-```sh
-brew install sdl2
 ```

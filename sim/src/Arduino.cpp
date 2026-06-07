@@ -2,8 +2,7 @@
 
 #include "Adafruit_Protomatter.h"
 
-#include <SDL.h>
-
+#include <chrono>
 #include <random>
 #include <string>
 
@@ -12,6 +11,7 @@ SerialPort Serial;
 namespace {
 std::mt19937 rng{1};
 int pinModes[64] = {0};
+const auto startTime = std::chrono::steady_clock::now();
 
 int analogIndex(int pin) {
   switch (pin) {
@@ -30,13 +30,13 @@ void delay(unsigned long ms) {
 }
 
 unsigned long millis() {
-  return SDL_GetTicks();
+  auto elapsed = std::chrono::steady_clock::now() - startTime;
+  return static_cast<unsigned long>(std::chrono::duration_cast<std::chrono::milliseconds>(elapsed).count());
 }
 
 unsigned long micros() {
-  static const uint64_t frequency = SDL_GetPerformanceFrequency();
-  const uint64_t counter = SDL_GetPerformanceCounter();
-  return static_cast<unsigned long>((counter * 1000000ULL) / frequency);
+  auto elapsed = std::chrono::steady_clock::now() - startTime;
+  return static_cast<unsigned long>(std::chrono::duration_cast<std::chrono::microseconds>(elapsed).count());
 }
 
 int analogRead(int pin) {

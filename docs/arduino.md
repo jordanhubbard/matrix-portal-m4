@@ -14,8 +14,9 @@ All Arduino CLI package data and sketchbook libraries are kept under the local
   and uploads a sketch to a connected Matrix Portal M4.
 - `make ports` lists connected boards and serial ports.
 - `make clean` removes generated build outputs.
-- `make run` starts the local SDL IDE/simulator. It does not upload to hardware.
-- `make test` runs host checks, Arduino cross-builds, and SDL preview builds.
+- `make run` starts the native macOS IDE/simulator. It does not upload to
+  hardware unless Hardware mode is selected.
+- `make test` runs host checks, Arduino cross-builds, and native preview builds.
 
 The Makefile discovers every `Arduino/*/*.ino` sketch, including new local demo
 directories, so `make build` validates all code intended for upload.
@@ -28,10 +29,10 @@ set a wider framebuffer.
 
 The sign-oriented examples share `Arduino/sign_common/SignDisplay.h` for the
 Matrix Portal pin map, 5x7 text drawing, colors, and panel-chain setup. The
-Makefile adds that directory to both Arduino CLI and SDL preview builds.
+Makefile adds that directory to both Arduino CLI and native preview builds.
 
-Display geometry can be selected in the SDL IDE before loading, verifying, or
-uploading. Scripted builds use the same inputs:
+Display geometry can be selected in the native macOS IDE before loading,
+verifying, or uploading. Scripted builds use the same inputs:
 
 ```sh
 make build SKETCH=Arduino/weather_dashboard/weather_dashboard.ino PANEL_COUNT=2 PANEL_WIDTH=64 PANEL_HEIGHT=32
@@ -44,8 +45,8 @@ The Makefile passes those values as `PANEL_COUNT`, `PANEL_WIDTH`,
 derived from `PANEL_WIDTH` and `PANEL_HEIGHT`.
 
 This repository does not install the official Arduino IDE application. Compile
-and upload use `arduino-cli`; the local IDE mentioned in the README is the SDL
-simulator shell built by `make run`.
+and upload use `arduino-cli`; the local IDE mentioned in the README is the
+Swift/AppKit launcher built by `make run`.
 
 ## Dependency sources
 

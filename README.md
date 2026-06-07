@@ -6,16 +6,16 @@ HUB75 RGB LED matrices.
 The main workflow is now Makefile-driven:
 
 - `arduino-cli` compiles and uploads sketches for the Matrix Portal M4.
-- A repo-local SDL2 simulator/IDE previews sketches on the host before hardware
-  upload.
-- Display geometry is selected in the simulator IDE or through Make variables,
+- A native macOS AppKit launcher previews sketches on the host before hardware
+  upload, with an AppKit/CoreGraphics HUB75 preview window.
+- Display geometry is selected in the macOS IDE or through Make variables,
   then passed into sketches as compile-time panel-count and panel-size defines.
 - Build products, Arduino package data, and optional local tools stay inside
   ignored repo directories.
 
 This repository does not install the official Arduino IDE app. The "IDE" here
-is the local SDL simulator shell launched by `make run`; hardware build and
-upload are handled by `arduino-cli`.
+is the native macOS app bundle built under `build/sim/` by `make run`; hardware
+build and upload are handled by `arduino-cli`.
 
 ## Quick Start
 
@@ -32,7 +32,7 @@ Compile every Arduino sketch for the Matrix Portal M4:
 make build
 ```
 
-Open the local SDL simulator IDE:
+Open the native macOS launcher IDE:
 
 ```sh
 make run
@@ -60,8 +60,8 @@ make install   install repo-local Arduino CLI, board core, and libraries
 make build     compile all Arduino sketches, or SKETCH=... for one
 make upload    compile and upload SKETCH=... to PORT=...
 make ports     list connected Arduino serial ports
-make run       open the SDL simulator IDE, or SKETCH=... for one preview
-make test      run host checks, Arduino cross-builds, and SDL preview builds
+make run       open the macOS IDE, or SKETCH=... for one preview
+make test      run host checks, Arduino cross-builds, and native preview builds
 make clean     remove generated build outputs
 make distclean remove build outputs, .tools/, and .arduino/
 make doctor    print active toolchain and board configuration
@@ -84,12 +84,8 @@ For Arduino hardware builds, `make install` downloads `arduino-cli` into
 `.tools/bin` and installs Arduino package data and libraries under `.arduino/`
 using `arduino-cli.yaml`.
 
-For the simulator on macOS, install SDL2 if `make run` reports that
-`sdl2-config` is missing:
-
-```sh
-brew install sdl2
-```
+The native launcher and preview renderer are built with the Xcode command line
+tools: `swiftc` for the IDE and Apple clang for the Objective-C++ preview.
 
 Uploading requires a Matrix Portal M4 connected over USB. Use `make ports` to
 find the serial device name.
@@ -131,11 +127,12 @@ The default board target is:
 adafruit:samd:adafruit_matrixportal_m4:cache=on,speed=120,opt=small,maxqspi=50,usbstack=arduino,debug=off
 ```
 
-## Local Simulator IDE
+## Native macOS IDE
 
-The `sim/` directory builds a native SDL2 preview harness. It compiles sketches
-as host C++ and shadows selected Arduino, Protomatter, LIS3DH, PixelDust,
-NeoPixel, and WiFiNINA APIs with local stubs.
+The `sim/macos/` directory builds a native AppKit app bundle. The `sim/`
+compatibility layer compiles sketches as host C++/Objective-C++ and shadows
+selected Arduino, Protomatter, LIS3DH, PixelDust, NeoPixel, and WiFiNINA APIs
+with local stubs.
 
 The simulator is useful for display logic and interaction checks before upload.
 It is not a cycle-accurate SAMD51 emulator and does not replace hardware
@@ -144,11 +141,18 @@ testing.
 With no `SKETCH`, `make run` opens the simulator IDE. The right-side
 configuration panel has an explicit destination mode:
 
-- `Simulator` loads the selected sketch into the SDL preview with emulated
+- `Simulator` loads the selected sketch into the native preview with emulated
   serial I/O, buttons, analog inputs, and sensor values.
 - `Hardware` loads the selected sketch to the selected USB device. The USB
   device and baud rate are selected in first-class dropdowns, and the I/O drawer
-  switches from emulated serial to the physical serial monitor.
+  switches from emulated serial to a live USB serial text pane.
+
+The serial I/O drawer is a terminal-style text window with scrollback and a TX
+input line. In Simulator mode, build output and sketch `Serial.print()` output
+stream into the text pane, and TX is written to the running simulator process.
+In Hardware mode, selecting a USB device opens that serial port at the selected
+baud rate, incoming bytes are shown in the RX scrollback, and Enter sends the
+TX line to the board.
 
 The same panel has first-class display geometry controls. Choose the number of
 chained panels and each panel's pixel size before loading, verifying, or
@@ -158,8 +162,7 @@ uploading. The IDE passes those choices as `PANEL_COUNT`, `PANEL_WIDTH`,
 matrix width instead of relying on a hardcoded `SIM_PANEL` default.
 
 When Hardware mode is selected, sensor simulation controls are shown as disabled
-because the physical Matrix Portal sensors and inputs are in the loop. Hover
-over toolbar buttons for tooltips.
+because the physical Matrix Portal sensors and inputs are in the loop.
 
 The simulated Matrix Portal surface includes:
 
@@ -175,7 +178,8 @@ The simulated Matrix Portal surface includes:
 
 - `Arduino/` - Matrix Portal M4 Arduino sketches.
 - `Arduino/sign_common/` - shared sign-demo font, color, and matrix helpers.
-- `sim/` - SDL2 simulator IDE and compatibility stubs.
+- `sim/macos/` - native AppKit launcher IDE.
+- `sim/` - native preview renderer and compatibility stubs.
 - `docs/arduino.md` - Arduino CLI dependency and pin notes.
 - `docs/simulation.md` - simulator behavior and controls.
 - `CircuitPython/Life/` - older CircuitPython Life port kept for reference.
