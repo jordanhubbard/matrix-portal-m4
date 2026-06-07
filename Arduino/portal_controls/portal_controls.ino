@@ -1,38 +1,18 @@
 // Matrix Portal M4 built-in device demo.
 // Tilt controls the color field. Buttons 2/3 change status color and D13 state.
 
-#include <Adafruit_Protomatter.h>
+#include "SignDisplay.h"
 #include <Adafruit_LIS3DH.h>
 #include <Adafruit_NeoPixel.h>
 #include <Wire.h>
 #include <math.h>
 
-uint8_t rgbPins[]  = {7, 8, 9, 10, 11, 12};
-uint8_t addrPins[] = {17, 18, 19, 20, 21};
-uint8_t clockPin   = 14;
-uint8_t latchPin   = 15;
-uint8_t oePin      = 16;
-
-#define MATRIX_WIDTH 64
-#define MATRIX_HEIGHT 64
+#define MATRIX_WIDTH SIGN_WIDTH
+#define MATRIX_HEIGHT SIGN_HEIGHT
 #define BUTTON_UP_PIN 2
 #define BUTTON_DOWN_PIN 3
 #define STATUS_NEOPIXEL_PIN 4
 #define FRAME_DELAY_MS 25
-
-#if MATRIX_HEIGHT == 16
-#define NUM_ADDR_PINS 3
-#elif MATRIX_HEIGHT == 32
-#define NUM_ADDR_PINS 4
-#elif MATRIX_HEIGHT == 64
-#define NUM_ADDR_PINS 5
-#else
-#error "MATRIX_HEIGHT must be 16, 32, or 64"
-#endif
-
-Adafruit_Protomatter matrix(
-  MATRIX_WIDTH, 4, 1, rgbPins, NUM_ADDR_PINS, addrPins,
-  clockPin, latchPin, oePin, false);
 Adafruit_LIS3DH accel = Adafruit_LIS3DH();
 Adafruit_NeoPixel statusPixel(1, STATUS_NEOPIXEL_PIN, NEO_GRB + NEO_KHZ800);
 

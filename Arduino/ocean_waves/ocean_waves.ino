@@ -1,32 +1,9 @@
-// Layered ocean wave and foam animation for Matrix Portal M4.
-// Increase MATRIX_WIDTH to 128 or 192 when chaining more 64-pixel-wide panels.
-
-#include <Adafruit_Protomatter.h>
+#include "SignDisplay.h"
 #include <math.h>
 
-uint8_t rgbPins[]  = {7, 8, 9, 10, 11, 12};
-uint8_t addrPins[] = {17, 18, 19, 20, 21};
-uint8_t clockPin   = 14;
-uint8_t latchPin   = 15;
-uint8_t oePin      = 16;
-
-#define MATRIX_WIDTH 64
-#define MATRIX_HEIGHT 64
+#define MATRIX_WIDTH SIGN_WIDTH
+#define MATRIX_HEIGHT SIGN_HEIGHT
 #define FRAME_DELAY_MS 20
-
-#if MATRIX_HEIGHT == 16
-#define NUM_ADDR_PINS 3
-#elif MATRIX_HEIGHT == 32
-#define NUM_ADDR_PINS 4
-#elif MATRIX_HEIGHT == 64
-#define NUM_ADDR_PINS 5
-#else
-#error "MATRIX_HEIGHT must be 16, 32, or 64"
-#endif
-
-Adafruit_Protomatter matrix(
-  MATRIX_WIDTH, 4, 1, rgbPins, NUM_ADDR_PINS, addrPins,
-  clockPin, latchPin, oePin, false);
 
 uint16_t rgb(uint8_t r, uint8_t g, uint8_t b) {
   return matrix.color565(r, g, b);

@@ -1,31 +1,12 @@
-// From the Arduino tutorials, updated for my 64x128 pixel array (two panels).
-// Really just checked in here to remind me how many address lines and other
-// things to use in other examples.
+// Basic Matrix Portal drawing test using the IDE-generated panel layout.
 
-#include <Adafruit_Protomatter.h>
+#include "SignDisplay.h"
 
-uint8_t rgbPins[]  = {7, 8, 9, 10, 11, 12};
-uint8_t addrPins[] = {17, 18, 19, 20, 21};
-uint8_t clockPin   = 14;
-uint8_t latchPin   = 15;
-uint8_t oePin      = 16;
-
-// This is a single 64x64 pixel display
-#define HEIGHT 64
-#define WIDTH  64
-
-#if HEIGHT == 16
-#define NUM_ADDR_PINS 3
-#elif HEIGHT == 32
-#define NUM_ADDR_PINS 4
-#elif HEIGHT == 64
-#define NUM_ADDR_PINS 5
-#endif
-
-Adafruit_Protomatter matrix(WIDTH, 4, 1, rgbPins, NUM_ADDR_PINS, addrPins, clockPin, latchPin, oePin, false);
+#define HEIGHT SIGN_HEIGHT
+#define WIDTH  SIGN_WIDTH
 
 void setup(void) {
-  Serial.begin(9600);
+  Serial.begin(115200);
   
   // Initialize matrix...
   ProtomatterStatus status = matrix.begin();
@@ -36,18 +17,26 @@ void setup(void) {
   
   // Make four color bars (red, green, blue, white) with brightness ramp:
   for(int x=0; x<matrix.width(); x++) {
-    uint8_t level = x * 256 / matrix.width(); // 0-255 brightness
+    uint8_t level = (uint32_t)x * 255 / matrix.width();
     matrix.drawPixel(x, matrix.height() - 4, matrix.color565(level, 0, 0));
     matrix.drawPixel(x, matrix.height() - 3, matrix.color565(0, level, 0));
     matrix.drawPixel(x, matrix.height() - 2, matrix.color565(0, 0, level));
     matrix.drawPixel(x, matrix.height() - 1, matrix.color565(level, level, level));
   }
   
-  // Simple shapes and text, showing GFX library calls:
-  matrix.drawCircle(12, 10, 9, matrix.color565(255, 0, 0));               // Red
-  matrix.drawRect(14, 6, 17, 17, matrix.color565(0, 255, 0));             // Green
-  matrix.drawTriangle(32, 9, 41, 27, 23, 27, matrix.color565(0, 0, 255)); // Blue
-  matrix.println("ADAFRUIT"); // Default text color is white
+  int16_t shapeY = HEIGHT > 40 ? 16 : HEIGHT / 2;
+  matrix.drawCircle(WIDTH / 4, shapeY, 8, matrix.color565(255, 0, 0));
+  matrix.drawRect(WIDTH / 2 - 9, shapeY - 8, 18, 18, matrix.color565(0, 255, 0));
+  matrix.drawTriangle(WIDTH * 3 / 4, shapeY - 9,
+                      WIDTH * 3 / 4 + 9, shapeY + 9,
+                      WIDTH * 3 / 4 - 9, shapeY + 9,
+                      matrix.color565(0, 0, 255));
+
+  if (WIDTH >= signTextWidth("ADAFRUIT") + 2 && HEIGHT >= 24) {
+    signDrawCenteredText(HEIGHT - 14, "ADAFRUIT", matrix.color565(255, 255, 255));
+  } else {
+    signDrawCenteredText(HEIGHT - 14, "M4", matrix.color565(255, 255, 255));
+  }
   
   // AFTER DRAWING, A show() CALL IS REQUIRED TO UPDATE THE MATRIX!
   

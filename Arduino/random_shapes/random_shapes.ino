@@ -1,27 +1,9 @@
-// Simple rainbow effect
+// Simple layout-aware rainbow shapes effect.
 
-#include <Adafruit_Protomatter.h>
+#include "SignDisplay.h"
 
-uint8_t rgbPins[]  = {7, 8, 9, 10, 11, 12};
-uint8_t addrPins[] = {17, 18, 19, 20, 21};
-uint8_t clockPin   = 14;
-uint8_t latchPin   = 15;
-uint8_t oePin      = 16;
-
-// This is a simple 64x64 display
-#define HEIGHT 64
-#define WIDTH  64
-
-#if HEIGHT == 16
-#define NUM_ADDR_PINS 3
-#elif HEIGHT == 32
-#define NUM_ADDR_PINS 4
-#elif HEIGHT == 64
-#define NUM_ADDR_PINS 5
-#endif
-
-Adafruit_Protomatter matrix(
-  WIDTH, 4, 1, rgbPins, NUM_ADDR_PINS, addrPins, clockPin, latchPin, oePin, false);
+#define HEIGHT SIGN_HEIGHT
+#define WIDTH  SIGN_WIDTH
 
 // Variables for animation
 float angle = 0;
@@ -31,7 +13,7 @@ int hue = 0;
 uint16_t hsvToRgb565(uint8_t h, uint8_t s, uint8_t v);
 
 void setup() {
-  Serial.begin(9600);
+  Serial.begin(115200);
 
   // Initialize matrix...
   ProtomatterStatus status = matrix.begin();
@@ -108,5 +90,5 @@ uint16_t hsvToRgb565(uint8_t h, uint8_t s, uint8_t v) {
     r = v; g = p; b = q;
     break;
   } 
-  return ((r & 0xF8) << 8) | ((g & 0xFC) << 3) | (b >> 3);
+  return matrix.color565(r, g, b);
 }

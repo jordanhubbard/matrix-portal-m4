@@ -1,29 +1,13 @@
-#include <Adafruit_Protomatter.h>
+#include "SignDisplay.h"
 #include <Adafruit_GFX.h>
 #include <math.h>
 
-uint8_t rgbPins[]  = {7, 8, 9, 10, 11, 12};
-uint8_t addrPins[] = {17, 18, 19, 20, 21};
-uint8_t clockPin   = 14;
-uint8_t latchPin   = 15;
-uint8_t oePin      = 16;
-
 // Matrix configuration
-#define WIDTH 64   // Adjust for your LED matrix size
-#define HEIGHT 64  // Adjust for your LED matrix size (but see below for address line value)
+#define WIDTH SIGN_WIDTH
+#define HEIGHT SIGN_HEIGHT
 #define DELAY_TIME 0    // Number of mSec to delay between loops
 #define MAX_BRIGHT 255   // Maximum brightness value per pixel
 #define NUM_STARS 400	 // How many stars to work with in the array (not necessarily visible!)
-
-#if HEIGHT == 16
-#define NUM_ADDR_PINS 3
-#elif HEIGHT == 32
-#define NUM_ADDR_PINS 4
-#elif HEIGHT == 64
-#define NUM_ADDR_PINS 5
-#endif
-
-Adafruit_Protomatter matrix(WIDTH, 4, 1, rgbPins, NUM_ADDR_PINS, addrPins, clockPin, latchPin, oePin, false);
 
 // Star properties
 struct Star {

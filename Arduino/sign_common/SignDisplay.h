@@ -2,7 +2,9 @@
 
 #include <Adafruit_Protomatter.h>
 #include <Arduino.h>
+#include "PanelLayout.h"
 #include <math.h>
+#include <stdlib.h>
 #include <string.h>
 
 #ifndef TWO_PI
@@ -10,28 +12,42 @@
 #endif
 
 #ifndef SIGN_PANEL_COUNT
-#define SIGN_PANEL_COUNT 4
+#define SIGN_PANEL_COUNT PANEL_LAYOUT_PANEL_COUNT
 #endif
 
 #ifndef SIGN_PANEL_WIDTH
-#define SIGN_PANEL_WIDTH 32
+#define SIGN_PANEL_WIDTH PANEL_LAYOUT_PANEL_WIDTH
 #endif
 
 #ifndef SIGN_PANEL_HEIGHT
-#define SIGN_PANEL_HEIGHT 32
+#define SIGN_PANEL_HEIGHT PANEL_LAYOUT_PANEL_HEIGHT
 #endif
 
-#define SIGN_WIDTH (SIGN_PANEL_COUNT * SIGN_PANEL_WIDTH)
-#define SIGN_HEIGHT SIGN_PANEL_HEIGHT
+#ifndef PANEL_COUNT
+#define PANEL_COUNT PANEL_LAYOUT_PANEL_COUNT
+#endif
 
-#if SIGN_HEIGHT == 16
+#ifndef PANEL_WIDTH
+#define PANEL_WIDTH PANEL_LAYOUT_PANEL_WIDTH
+#endif
+
+#ifndef PANEL_HEIGHT
+#define PANEL_HEIGHT PANEL_LAYOUT_PANEL_HEIGHT
+#endif
+
+#define SIGN_RAW_WIDTH PANEL_LAYOUT_SOURCE_WIDTH
+#define SIGN_RAW_HEIGHT PANEL_LAYOUT_SOURCE_HEIGHT
+#define SIGN_WIDTH PANEL_LAYOUT_PHYSICAL_WIDTH
+#define SIGN_HEIGHT PANEL_LAYOUT_PHYSICAL_HEIGHT
+
+#if SIGN_RAW_HEIGHT == 16
 #define SIGN_NUM_ADDR_PINS 3
-#elif SIGN_HEIGHT == 32
+#elif SIGN_RAW_HEIGHT == 32
 #define SIGN_NUM_ADDR_PINS 4
-#elif SIGN_HEIGHT == 64
+#elif SIGN_RAW_HEIGHT == 64
 #define SIGN_NUM_ADDR_PINS 5
 #else
-#error "SIGN_PANEL_HEIGHT must be 16, 32, or 64"
+#error "PANEL_LAYOUT_SOURCE_HEIGHT must be 16, 32, or 64"
 #endif
 
 uint8_t rgbPins[]  = {7, 8, 9, 10, 11, 12};
@@ -40,9 +56,183 @@ uint8_t clockPin   = 14;
 uint8_t latchPin   = 15;
 uint8_t oePin      = 16;
 
-Adafruit_Protomatter matrix(
-  SIGN_WIDTH, 4, 1, rgbPins, SIGN_NUM_ADDR_PINS, addrPins,
-  clockPin, latchPin, oePin, false);
+inline int signPanelRotatedWidth(const MatrixPortalPanelLayoutEntry &panel) {
+  return panel.rotation == 90 || panel.rotation == 270 ? panel.height : panel.width;
+}
+
+inline int signPanelRotatedHeight(const MatrixPortalPanelLayoutEntry &panel) {
+  return panel.rotation == 90 || panel.rotation == 270 ? panel.width : panel.height;
+}
+
+inline bool signMapPixelToSource(int x, int y, int16_t &sourceX, int16_t &sourceY) {
+  for (int i = 0; i < PANEL_LAYOUT_PANEL_COUNT; i++) {
+    const MatrixPortalPanelLayoutEntry &panel = PANEL_LAYOUT[i];
+    int localX = x - panel.x;
+    int localY = y - panel.y;
+    if (localX < 0 || localY < 0 ||
+        localX >= signPanelRotatedWidth(panel) ||
+        localY >= signPanelRotatedHeight(panel)) {
+      continue;
+    }
+
+    switch (panel.rotation) {
+    case 90:
+      sourceX = panel.sourceX + localY;
+      sourceY = panel.sourceY + panel.height - 1 - localX;
+      break;
+    case 180:
+      sourceX = panel.sourceX + panel.width - 1 - localX;
+      sourceY = panel.sourceY + panel.height - 1 - localY;
+      break;
+    case 270:
+      sourceX = panel.sourceX + panel.width - 1 - localY;
+      sourceY = panel.sourceY + localX;
+      break;
+    default:
+      sourceX = panel.sourceX + localX;
+      sourceY = panel.sourceY + localY;
+      break;
+    }
+    return sourceX >= 0 && sourceY >= 0 &&
+           sourceX < SIGN_RAW_WIDTH && sourceY < SIGN_RAW_HEIGHT;
+  }
+  return false;
+}
+
+class SignDisplayMatrix {
+public:
+  SignDisplayMatrix() :
+    hardware(SIGN_RAW_WIDTH, 4, 1, rgbPins, SIGN_NUM_ADDR_PINS, addrPins,
+             clockPin, latchPin, oePin, false) {
+  }
+
+  ProtomatterStatus begin() {
+    return hardware.begin();
+  }
+
+  int16_t width() const {
+    return SIGN_WIDTH;
+  }
+
+  int16_t height() const {
+    return SIGN_HEIGHT;
+  }
+
+  uint16_t color565(uint8_t red, uint8_t green, uint8_t blue) {
+    return hardware.color565(red, green, blue);
+  }
+
+  void drawPixel(int16_t x, int16_t y, uint16_t color) {
+    int16_t sourceX = 0;
+    int16_t sourceY = 0;
+    if (signMapPixelToSource(x, y, sourceX, sourceY)) {
+      hardware.drawPixel(sourceX, sourceY, color);
+    }
+  }
+
+  void fillScreen(uint16_t color) {
+    hardware.fillScreen(color);
+  }
+
+  void drawRect(int16_t x, int16_t y, int16_t w, int16_t h, uint16_t color) {
+    drawLine(x, y, x + w - 1, y, color);
+    drawLine(x, y + h - 1, x + w - 1, y + h - 1, color);
+    drawLine(x, y, x, y + h - 1, color);
+    drawLine(x + w - 1, y, x + w - 1, y + h - 1, color);
+  }
+
+  void fillRect(int16_t x, int16_t y, int16_t w, int16_t h, uint16_t color) {
+    for (int16_t yy = y; yy < y + h; yy++) {
+      for (int16_t xx = x; xx < x + w; xx++) {
+        drawPixel(xx, yy, color);
+      }
+    }
+  }
+
+  void drawLine(int16_t x0, int16_t y0, int16_t x1, int16_t y1, uint16_t color) {
+    int16_t dx = abs(x1 - x0);
+    int16_t sx = x0 < x1 ? 1 : -1;
+    int16_t dy = -abs(y1 - y0);
+    int16_t sy = y0 < y1 ? 1 : -1;
+    int16_t err = dx + dy;
+
+    while (true) {
+      drawPixel(x0, y0, color);
+      if (x0 == x1 && y0 == y1) {
+        break;
+      }
+      int16_t e2 = 2 * err;
+      if (e2 >= dy) {
+        err += dy;
+        x0 += sx;
+      }
+      if (e2 <= dx) {
+        err += dx;
+        y0 += sy;
+      }
+    }
+  }
+
+  void drawCircle(int16_t x0, int16_t y0, int16_t radius, uint16_t color) {
+    int16_t x = radius;
+    int16_t y = 0;
+    int16_t err = 0;
+    while (x >= y) {
+      drawPixel(x0 + x, y0 + y, color);
+      drawPixel(x0 + y, y0 + x, color);
+      drawPixel(x0 - y, y0 + x, color);
+      drawPixel(x0 - x, y0 + y, color);
+      drawPixel(x0 - x, y0 - y, color);
+      drawPixel(x0 - y, y0 - x, color);
+      drawPixel(x0 + y, y0 - x, color);
+      drawPixel(x0 + x, y0 - y, color);
+      if (err <= 0) {
+        y++;
+        err += 2 * y + 1;
+      }
+      if (err > 0) {
+        x--;
+        err -= 2 * x + 1;
+      }
+    }
+  }
+
+  void fillCircle(int16_t x0, int16_t y0, int16_t radius, uint16_t color) {
+    for (int16_t y = -radius; y <= radius; y++) {
+      for (int16_t x = -radius; x <= radius; x++) {
+        if (x * x + y * y <= radius * radius) {
+          drawPixel(x0 + x, y0 + y, color);
+        }
+      }
+    }
+  }
+
+  void drawTriangle(int16_t x0, int16_t y0,
+                    int16_t x1, int16_t y1,
+                    int16_t x2, int16_t y2,
+                    uint16_t color) {
+    drawLine(x0, y0, x1, y1, color);
+    drawLine(x1, y1, x2, y2, color);
+    drawLine(x2, y2, x0, y0, color);
+  }
+
+  void show() {
+    hardware.show();
+  }
+
+  uint32_t getFrameCount() {
+    return hardware.getFrameCount();
+  }
+
+  void println(const char *text) {
+    Serial.println(text);
+  }
+
+private:
+  Adafruit_Protomatter hardware;
+};
+
+SignDisplayMatrix matrix;
 
 inline uint8_t signClampByte(int value) {
   if (value < 0) return 0;

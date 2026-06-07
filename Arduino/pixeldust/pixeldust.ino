@@ -8,33 +8,15 @@ PLEASE SEE THE "simple" EXAMPLE FOR AN INTRODUCTORY SKETCH,
 or "doublebuffer" for animation basics.
 ------------------------------------------------------------------------- */
 
+#include "SignDisplay.h"
 #include <Wire.h>                 // For I2C communication
 #include <Adafruit_LIS3DH.h>      // For accelerometer
 #include <Adafruit_PixelDust.h>   // For sand simulation
-#include <Adafruit_Protomatter.h> // For RGB matrix
 
 // Set to a single 64x64 panel display
-#define HEIGHT  64 // Matrix height (pixels) - SET TO 64 FOR 64x64 MATRIX!
-#define WIDTH   64 // Matrix width (pixels)
+#define HEIGHT  SIGN_HEIGHT
+#define WIDTH   SIGN_WIDTH
 #define MAX_FPS 60 // Maximum redraw rate, frames/second
-
-uint8_t rgbPins[]  = {7, 8, 9, 10, 11, 12};
-uint8_t addrPins[] = {17, 18, 19, 20, 21};
-uint8_t clockPin   = 14;
-uint8_t latchPin   = 15;
-uint8_t oePin      = 16;
-
-#if HEIGHT == 16
-#define NUM_ADDR_PINS 3
-#elif HEIGHT == 32
-#define NUM_ADDR_PINS 4
-#elif HEIGHT == 64
-#define NUM_ADDR_PINS 5
-#endif
-
-Adafruit_Protomatter matrix(
-  WIDTH, 4, 1, rgbPins, NUM_ADDR_PINS, addrPins,
-  clockPin, latchPin, oePin, true);
 
 Adafruit_LIS3DH accel = Adafruit_LIS3DH();
 

@@ -4,8 +4,10 @@
 #import <CoreGraphics/CoreGraphics.h>
 
 #include <algorithm>
+#include <cctype>
 #include <chrono>
 #include <cmath>
+#include <cstdio>
 #include <cstdlib>
 #include <fstream>
 #include <iostream>
@@ -52,6 +54,9 @@ const Adafruit_Protomatter *activeMatrix = nullptr;
 bool keepRunning = true;
 bool showGrid = true;
 bool dragging = false;
+bool layoutDirty = false;
+bool suppressPreviewWindow = false;
+bool layoutInitialized = false;
 int scale = 8;
 int defaultPanelWidth = 32;
 int defaultPanelHeight = 32;
@@ -69,6 +74,7 @@ uint32_t presentedFrames = 0;
 std::string baseWindowTitle = "Matrix Portal M4 Preview";
 std::string layoutPath = "sim-panel-layout.txt";
 std::string controlPath;
+std::string framePath;
 std::string currentSketchPath =
 #ifdef SKETCH_NAME
   SKETCH_NAME;
@@ -87,12 +93,15 @@ void rotateSelectedPanel();
 void fitPanelsInRow();
 bool saveLayout();
 bool loadLayout();
+void markLayoutChanged();
 void updateWindowTitle();
 void requestPreviewDisplay();
 void handleMouseDownPoint(NSPoint point);
 void handleMouseDraggedPoint(NSPoint point);
 void handleKeyEvent(NSEvent *event, bool down);
 void drawPreview(CGContextRef context, NSRect bounds);
+void ensurePreviewLayout(const Adafruit_Protomatter &matrix);
+void writeFrameFile(const Adafruit_Protomatter &matrix);
 
 std::string sketchDisplayName() {
   size_t slash = currentSketchPath.find_last_of("/\\");
@@ -140,6 +149,29 @@ void parseSize(const std::string &value, int &width, int &height) {
 
 bool parseBoolValue(const std::string &value) {
   return value == "1" || value == "true" || value == "yes" || value == "on";
+}
+
+std::vector<int> parseIntegers(const std::string &line) {
+  std::vector<int> values;
+  for (size_t i = 0; i < line.size();) {
+    bool negative = false;
+    if (line[i] == '-') {
+      negative = true;
+      ++i;
+    }
+    if (i >= line.size() || !std::isdigit(static_cast<unsigned char>(line[i]))) {
+      ++i;
+      continue;
+    }
+
+    int value = 0;
+    while (i < line.size() && std::isdigit(static_cast<unsigned char>(line[i]))) {
+      value = value * 10 + (line[i] - '0');
+      ++i;
+    }
+    values.push_back(negative ? -value : value);
+  }
+  return values;
 }
 
 void applyControlFile() {
@@ -242,6 +274,11 @@ void requestPreviewDisplay() {
   updateWindowTitle();
 }
 
+void markLayoutChanged() {
+  saveLayout();
+  requestPreviewDisplay();
+}
+
 void addPanel() {
   Panel panel;
   panel.width = std::min(defaultPanelWidth, logicalWidth);
@@ -262,7 +299,7 @@ void addPanel() {
 
   panels.push_back(panel);
   selectedPanel = static_cast<int>(panels.size()) - 1;
-  requestPreviewDisplay();
+  markLayoutChanged();
 }
 
 void ensureDefaultPanels() {
@@ -295,7 +332,7 @@ void deleteSelectedPanel() {
   if (selectedPanel >= static_cast<int>(panels.size())) {
     selectedPanel = static_cast<int>(panels.size()) - 1;
   }
-  requestPreviewDisplay();
+  markLayoutChanged();
 }
 
 void rotateSelectedPanel() {
@@ -304,7 +341,7 @@ void rotateSelectedPanel() {
   }
   Panel &panel = panels[static_cast<size_t>(selectedPanel)];
   panel.rotation = (panel.rotation + 90) % 360;
-  requestPreviewDisplay();
+  markLayoutChanged();
 }
 
 void fitPanelsInRow() {
@@ -314,7 +351,7 @@ void fitPanelsInRow() {
     panel.y = 0;
     x += rotatedWidth(panel);
   }
-  requestPreviewDisplay();
+  markLayoutChanged();
 }
 
 bool saveLayout() {
@@ -323,13 +360,52 @@ bool saveLayout() {
     std::cerr << "Could not write layout: " << layoutPath << "\n";
     return false;
   }
-  out << "# source_x source_y width height physical_x physical_y rotation\n";
-  for (const Panel &panel : panels) {
-    out << panel.sourceX << ' ' << panel.sourceY << ' '
-        << panel.width << ' ' << panel.height << ' '
-        << panel.x << ' ' << panel.y << ' '
-        << panel.rotation << '\n';
+
+  int minX = 0;
+  int minY = 0;
+  int maxX = 0;
+  int maxY = 0;
+  if (!panels.empty()) {
+    minX = panels[0].x;
+    minY = panels[0].y;
+    maxX = panels[0].x + rotatedWidth(panels[0]);
+    maxY = panels[0].y + rotatedHeight(panels[0]);
+    for (const Panel &panel : panels) {
+      minX = std::min(minX, panel.x);
+      minY = std::min(minY, panel.y);
+      maxX = std::max(maxX, panel.x + rotatedWidth(panel));
+      maxY = std::max(maxY, panel.y + rotatedHeight(panel));
+    }
   }
+
+  out << "#pragma once\n\n";
+  out << "#include <stdint.h>\n\n";
+  out << "struct MatrixPortalPanelLayoutEntry {\n";
+  out << "  int16_t sourceX;\n";
+  out << "  int16_t sourceY;\n";
+  out << "  int16_t width;\n";
+  out << "  int16_t height;\n";
+  out << "  int16_t x;\n";
+  out << "  int16_t y;\n";
+  out << "  uint16_t rotation;\n";
+  out << "};\n\n";
+  out << "#define PANEL_LAYOUT_PANEL_COUNT " << panels.size() << "\n";
+  out << "#define PANEL_LAYOUT_PANEL_WIDTH " << defaultPanelWidth << "\n";
+  out << "#define PANEL_LAYOUT_PANEL_HEIGHT " << defaultPanelHeight << "\n";
+  out << "#define PANEL_LAYOUT_SOURCE_WIDTH " << logicalWidth << "\n";
+  out << "#define PANEL_LAYOUT_SOURCE_HEIGHT " << logicalHeight << "\n";
+  out << "#define PANEL_LAYOUT_PHYSICAL_WIDTH " << std::max(1, maxX - minX) << "\n";
+  out << "#define PANEL_LAYOUT_PHYSICAL_HEIGHT " << std::max(1, maxY - minY) << "\n";
+  out << "#define PANEL_LAYOUT_IDE_LAYOUT_MODE \"Custom\"\n";
+  out << "#define PANEL_LAYOUT_IDE_ROTATION 0\n\n";
+  out << "static const MatrixPortalPanelLayoutEntry PANEL_LAYOUT[] = {\n";
+  for (const Panel &panel : panels) {
+    out << "  {" << panel.sourceX << ", " << panel.sourceY << ", "
+        << panel.width << ", " << panel.height << ", "
+        << panel.x - minX << ", " << panel.y - minY << ", "
+        << panel.rotation << "},\n";
+  }
+  out << "};\n";
   std::cerr << "Saved layout: " << layoutPath << "\n";
   return true;
 }
@@ -346,6 +422,20 @@ bool loadLayout() {
     if (line.empty() || line[0] == '#') {
       continue;
     }
+    std::vector<int> values = parseIntegers(line);
+    if (values.size() == 7) {
+      Panel panel;
+      panel.sourceX = values[0];
+      panel.sourceY = values[1];
+      panel.width = values[2];
+      panel.height = values[3];
+      panel.x = values[4];
+      panel.y = values[5];
+      panel.rotation = ((values[6] % 360) + 360) % 360;
+      loaded.push_back(panel);
+      continue;
+    }
+
     std::istringstream stream(line);
     Panel panel;
     if (stream >> panel.sourceX >> panel.sourceY >> panel.width >> panel.height
@@ -413,6 +503,7 @@ void handleMouseDraggedPoint(NSPoint point) {
   int worldY = (y - viewOriginY) / scale + viewMinY;
   panel.x = snapCoord(worldX - dragOffsetX);
   panel.y = snapCoord(worldY - dragOffsetY);
+  layoutDirty = true;
   requestPreviewDisplay();
 }
 
@@ -569,10 +660,78 @@ NSSize preferredPreviewSize() {
                     std::max(560, viewOriginY + maxY * scale + 24));
 }
 
-void ensureNativePreview(const Adafruit_Protomatter &matrix) {
+void ensurePreviewLayout(const Adafruit_Protomatter &matrix) {
   logicalWidth = matrix.width();
   logicalHeight = matrix.height();
+  if (layoutInitialized) {
+    return;
+  }
 
+  bool loadedLayout = loadLayout();
+  ensureDefaultPanels();
+  if (!loadedLayout) {
+    saveLayout();
+  }
+  layoutInitialized = true;
+}
+
+void writeFrameFile(const Adafruit_Protomatter &matrix) {
+  if (framePath.empty() || panels.empty()) {
+    return;
+  }
+
+  int minX = panels[0].x;
+  int minY = panels[0].y;
+  int maxX = panels[0].x + rotatedWidth(panels[0]);
+  int maxY = panels[0].y + rotatedHeight(panels[0]);
+  for (const Panel &panel : panels) {
+    minX = std::min(minX, panel.x);
+    minY = std::min(minY, panel.y);
+    maxX = std::max(maxX, panel.x + rotatedWidth(panel));
+    maxY = std::max(maxY, panel.y + rotatedHeight(panel));
+  }
+
+  int width = std::max(1, maxX - minX);
+  int height = std::max(1, maxY - minY);
+  std::vector<uint8_t> rgb(static_cast<size_t>(width) * static_cast<size_t>(height) * 3, 3);
+  const auto &pixels = matrix.pixels();
+
+  for (const Panel &panel : panels) {
+    int physicalWidth = rotatedWidth(panel);
+    int physicalHeight = rotatedHeight(panel);
+    for (int py = 0; py < physicalHeight; ++py) {
+      for (int px = 0; px < physicalWidth; ++px) {
+        int sx = 0;
+        int sy = 0;
+        uint8_t r = 0;
+        uint8_t g = 0;
+        uint8_t b = 0;
+        if (mapPanelPixel(panel, px, py, sx, sy)) {
+          colorToRgb(pixels[static_cast<size_t>(sy) * matrix.width() + sx], r, g, b);
+        }
+        int dx = panel.x - minX + px;
+        int dy = panel.y - minY + py;
+        size_t offset = (static_cast<size_t>(dy) * static_cast<size_t>(width) + static_cast<size_t>(dx)) * 3;
+        rgb[offset] = r;
+        rgb[offset + 1] = g;
+        rgb[offset + 2] = b;
+      }
+    }
+  }
+
+  std::string tempPath = framePath + ".tmp";
+  std::ofstream out(tempPath, std::ios::binary);
+  if (!out) {
+    return;
+  }
+  out << "P6\n" << width << ' ' << height << "\n255\n";
+  out.write(reinterpret_cast<const char *>(rgb.data()), static_cast<std::streamsize>(rgb.size()));
+  out.close();
+  std::rename(tempPath.c_str(), framePath.c_str());
+}
+
+void ensureNativePreview(const Adafruit_Protomatter &matrix) {
+  ensurePreviewLayout(matrix);
   if (previewWindow) {
     return;
   }
@@ -580,8 +739,6 @@ void ensureNativePreview(const Adafruit_Protomatter &matrix) {
   [NSApplication sharedApplication];
   [NSApp setActivationPolicy:NSApplicationActivationPolicyRegular];
 
-  loadLayout();
-  ensureDefaultPanels();
   NSSize size = preferredPreviewSize();
 
   previewView = [[MatrixPreviewView alloc] initWithFrame:NSMakeRect(0, 0, size.width, size.height)];
@@ -642,6 +799,10 @@ void ensureNativePreview(const Adafruit_Protomatter &matrix) {
 
 - (void)mouseUp:(NSEvent *)event {
   (void)event;
+  if (layoutDirty) {
+    saveLayout();
+    layoutDirty = false;
+  }
   dragging = false;
 }
 
@@ -929,6 +1090,10 @@ void configureFromArgs(int argc, char **argv) {
       layoutPath = argv[++i];
     } else if (arg == "--control" && i + 1 < argc) {
       controlPath = argv[++i];
+    } else if (arg == "--frame-file" && i + 1 < argc) {
+      framePath = argv[++i];
+    } else if (arg == "--no-window") {
+      suppressPreviewWindow = true;
     }
   }
 }
@@ -954,9 +1119,12 @@ void pumpEvents() {
 }
 
 void present(const Adafruit_Protomatter &matrix) {
-  ensureNativePreview(matrix);
+  ensurePreviewLayout(matrix);
   activeMatrix = &matrix;
-  pumpEvents();
+  if (!suppressPreviewWindow) {
+    ensureNativePreview(matrix);
+    pumpEvents();
+  }
   applyControlFile();
 
   if (hardwareState.autoTilt) {
@@ -967,8 +1135,11 @@ void present(const Adafruit_Protomatter &matrix) {
     hardwareState.accelZ = 9.8f;
   }
 
-  [previewView setNeedsDisplay:YES];
-  [previewView displayIfNeeded];
+  writeFrameFile(matrix);
+  if (!suppressPreviewWindow) {
+    [previewView setNeedsDisplay:YES];
+    [previewView displayIfNeeded];
+  }
   ++presentedFrames;
   if (maxFrames > 0 && presentedFrames >= maxFrames) {
     keepRunning = false;

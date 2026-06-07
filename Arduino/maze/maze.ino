@@ -1,32 +1,11 @@
-#include <Arduino.h>
-#include <Adafruit_Protomatter.h>
+#include "SignDisplay.h"
 
-#define MATRIX_WIDTH  64
-#define MATRIX_HEIGHT 64
+#define MATRIX_WIDTH SIGN_WIDTH
+#define MATRIX_HEIGHT SIGN_HEIGHT
 #define CELL_COLS ((MATRIX_WIDTH - 1) / 2)
 #define CELL_ROWS ((MATRIX_HEIGHT - 1) / 2)
 #define MAX_CELLS (CELL_COLS * CELL_ROWS)
 #define STEP_DELAY_MS 10
-
-uint8_t rgbPins[]  = {7, 8, 9, 10, 11, 12};
-uint8_t addrPins[] = {17, 18, 19, 20, 21};
-uint8_t clockPin   = 14;
-uint8_t latchPin   = 15;
-uint8_t oePin      = 16;
-
-#if MATRIX_HEIGHT == 16
-#define NUM_ADDR_PINS 3
-#elif MATRIX_HEIGHT == 32
-#define NUM_ADDR_PINS 4
-#elif MATRIX_HEIGHT == 64
-#define NUM_ADDR_PINS 5
-#else
-#error "MATRIX_HEIGHT must be 16, 32, or 64"
-#endif
-
-Adafruit_Protomatter matrix(
-  MATRIX_WIDTH, 4, 1, rgbPins, NUM_ADDR_PINS, addrPins,
-  clockPin, latchPin, oePin, true);
 
 struct Cell {
   uint8_t x;

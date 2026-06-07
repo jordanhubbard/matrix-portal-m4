@@ -1,48 +1,13 @@
-#include <Adafruit_Protomatter.h>
+#include "SignDisplay.h"
 
-uint8_t rgbPins[]  = {7, 8, 9, 10, 11, 12};
-uint8_t addrPins[] = {17, 18, 19, 20, 21};
-uint8_t clockPin   = 14;
-uint8_t latchPin   = 15;
-uint8_t oePin      = 16;
-
-#ifndef PANEL_COUNT
-#define PANEL_COUNT 4
-#endif
-
-#ifndef PANEL_WIDTH
-#define PANEL_WIDTH 32
-#endif
-
-#ifndef PANEL_HEIGHT
-#define PANEL_HEIGHT 32
-#endif
-#define MATRIX_WIDTH (PANEL_COUNT * PANEL_WIDTH)
-#define MATRIX_HEIGHT PANEL_HEIGHT
+#define MATRIX_WIDTH SIGN_WIDTH
+#define MATRIX_HEIGHT SIGN_HEIGHT
 #define TILE_SIZE 4
 #define GRID_WIDTH (MATRIX_WIDTH / TILE_SIZE)
 #define GRID_HEIGHT (MATRIX_HEIGHT / TILE_SIZE)
 #define MAX_TILES (GRID_WIDTH * GRID_HEIGHT)
 #define GHOST_COUNT 4
 #define FRAME_DELAY_MS 28
-
-#if PANEL_COUNT < 1 || PANEL_COUNT > 4
-#error "PANEL_COUNT should be 1, 2, 3, or 4 for this demo."
-#endif
-
-#if MATRIX_HEIGHT == 16
-#define NUM_ADDR_PINS 3
-#elif MATRIX_HEIGHT == 32
-#define NUM_ADDR_PINS 4
-#elif MATRIX_HEIGHT == 64
-#define NUM_ADDR_PINS 5
-#else
-#error "MATRIX_HEIGHT must be 16, 32, or 64"
-#endif
-
-Adafruit_Protomatter matrix(
-  MATRIX_WIDTH, 4, 1, rgbPins, NUM_ADDR_PINS, addrPins,
-  clockPin, latchPin, oePin, false);
 
 struct Actor {
   int x;
@@ -208,8 +173,45 @@ void resetRound() {
   }
 }
 
+bool isReverseDirection(const Actor &actor, int d) {
+  return dirX[d] == -actor.dx && dirY[d] == -actor.dy;
+}
+
+bool canEnterTile(const Actor &actor, int d) {
+  int tileX = wrappedTileX(tileForPixel(actor.x) + dirX[d]);
+  int tileY = actor.y / TILE_SIZE + dirY[d];
+  return tileY >= 0 && tileY < GRID_HEIGHT && !isWallTile(tileX, tileY);
+}
+
+int collectLegalDirections(const Actor &actor, int dirs[4], bool allowReverse) {
+  int count = 0;
+  for (int d = 0; d < 4; d++) {
+    if (!allowReverse && isReverseDirection(actor, d)) {
+      continue;
+    }
+    if (canEnterTile(actor, d)) {
+      dirs[count++] = d;
+    }
+  }
+
+  if (count == 0 && !allowReverse) {
+    return collectLegalDirections(actor, dirs, true);
+  }
+  return count;
+}
+
+int wrappedTileDistanceX(int a, int b) {
+  int distance = iabs(a - b);
+  int wrapped = GRID_WIDTH - distance;
+  return wrapped < distance ? wrapped : distance;
+}
+
+int tileDistance(int ax, int ay, int bx, int by) {
+  return wrappedTileDistanceX(ax, bx) + iabs(ay - by);
+}
+
 int chooseFallbackDirection(const Actor &actor) {
-  int current = 0;
+  int current = random(4);
   for (int i = 0; i < 4; i++) {
     if (dirX[i] == actor.dx && dirY[i] == actor.dy) {
       current = i;
@@ -218,44 +220,41 @@ int chooseFallbackDirection(const Actor &actor) {
   }
   for (int attempt = 0; attempt < 4; attempt++) {
     int d = (current + attempt) % 4;
-    int nextX = actor.x + dirX[d];
-    int nextY = actor.y + dirY[d];
-    if (canMoveTo(nextX, nextY)) {
+    if (canEnterTile(actor, d)) {
       return d;
     }
   }
   return current;
 }
 
-int choosePacmanDirection() {
+int nearestFoodDistanceFrom(int startX, int startY) {
   bool seen[GRID_HEIGHT][GRID_WIDTH];
-  int firstDir[GRID_HEIGHT][GRID_WIDTH];
   int qx[MAX_TILES];
   int qy[MAX_TILES];
+  int qd[MAX_TILES];
 
   for (int y = 0; y < GRID_HEIGHT; y++) {
     for (int x = 0; x < GRID_WIDTH; x++) {
       seen[y][x] = false;
-      firstDir[y][x] = -1;
     }
   }
 
-  int startX = tileForPixel(pacman.x);
-  int startY = pacman.y / TILE_SIZE;
   int head = 0;
   int tail = 0;
   qx[tail] = startX;
   qy[tail] = startY;
+  qd[tail] = 0;
   tail++;
   seen[startY][startX] = true;
 
   while (head < tail) {
     int x = qx[head];
     int y = qy[head];
+    int distance = qd[head];
     head++;
 
-    if ((pellets[y][x] || powerPellets[y][x]) && !(x == startX && y == startY)) {
-      return firstDir[y][x];
+    if (pellets[y][x] || powerPellets[y][x]) {
+      return distance;
     }
 
     for (int d = 0; d < 4; d++) {
@@ -265,58 +264,131 @@ int choosePacmanDirection() {
         continue;
       }
       seen[ny][nx] = true;
-      firstDir[ny][nx] = firstDir[y][x] < 0 ? d : firstDir[y][x];
-      qx[tail] = nx;
-      qy[tail] = ny;
-      tail++;
+      if (tail < MAX_TILES) {
+        qx[tail] = nx;
+        qy[tail] = ny;
+        qd[tail] = distance + 1;
+        tail++;
+      }
     }
   }
 
-  return chooseFallbackDirection(pacman);
+  return GRID_WIDTH + GRID_HEIGHT;
+}
+
+int choosePacmanDirection() {
+  int dirs[4];
+  int legalCount = collectLegalDirections(pacman, dirs, false);
+  if (legalCount == 0) {
+    return chooseFallbackDirection(pacman);
+  }
+
+  int currentTileX = tileForPixel(pacman.x);
+  int currentTileY = pacman.y / TILE_SIZE;
+  int bestDir = dirs[random(legalCount)];
+  int bestScore = -32000;
+
+  for (int i = 0; i < legalCount; i++) {
+    int d = dirs[i];
+    int nextTileX = wrappedTileX(currentTileX + dirX[d]);
+    int nextTileY = currentTileY + dirY[d];
+    int nearestGhost = 999;
+    int ghostScore = 0;
+
+    for (int g = 0; g < GHOST_COUNT; g++) {
+      int ghostTileX = tileForPixel(ghosts[g].x);
+      int ghostTileY = ghosts[g].y / TILE_SIZE;
+      int distance = tileDistance(nextTileX, nextTileY, ghostTileX, ghostTileY);
+      if (distance < nearestGhost) {
+        nearestGhost = distance;
+      }
+      if (powerTimer > 0) {
+        ghostScore += (28 - distance) * 3;
+      } else {
+        ghostScore += distance * 10;
+        if (distance <= 1) {
+          ghostScore -= 900;
+        } else if (distance <= 3) {
+          ghostScore -= 180;
+        }
+      }
+    }
+
+    int foodDistance = nearestFoodDistanceFrom(nextTileX, nextTileY);
+    int score = ghostScore - foodDistance * (powerTimer > 0 ? 2 : 6);
+    score += random(-8, 9);
+    if (dirX[d] == pacman.dx && dirY[d] == pacman.dy) {
+      score += 10;
+    }
+    if (powerPellets[nextTileY][nextTileX] && powerTimer == 0 && nearestGhost < 8) {
+      score += 220;
+    } else if (pellets[nextTileY][nextTileX]) {
+      score += 24;
+    }
+
+    if (score > bestScore) {
+      bestScore = score;
+      bestDir = d;
+    }
+  }
+
+  return bestDir;
 }
 
 int chooseGhostDirection(const Actor &ghost, int ghostIndex) {
-  int bestDir = chooseFallbackDirection(ghost);
-  int bestScore = powerTimer > 0 ? -32000 : 32000;
-  int targetTileX = tileForPixel(pacman.x);
-  int targetTileY = pacman.y / TILE_SIZE;
-
-  if ((frameNumber / 180 + ghostIndex) % 5 == 0) {
-    targetTileX = ghostIndex % 2 == 0 ? 1 : GRID_WIDTH - 2;
-    targetTileY = ghostIndex < 2 ? 1 : GRID_HEIGHT - 2;
+  int dirs[4];
+  int legalCount = collectLegalDirections(ghost, dirs, false);
+  if (legalCount == 0) {
+    return chooseFallbackDirection(ghost);
   }
 
-  int reverseX = -ghost.dx;
-  int reverseY = -ghost.dy;
-  for (int d = 0; d < 4; d++) {
-    if (dirX[d] == reverseX && dirY[d] == reverseY) {
-      bool hasOtherMove = false;
-      for (int check = 0; check < 4; check++) {
-        if (check == d) continue;
-        if (canMoveTo(ghost.x + dirX[check], ghost.y + dirY[check])) {
-          hasOtherMove = true;
-        }
-      }
-      if (hasOtherMove) {
-        continue;
-      }
-    }
+  int randomChance = powerTimer > 0 ? 55 : 28;
+  if (random(100) < randomChance) {
+    return dirs[random(legalCount)];
+  }
 
-    int nextX = ghost.x + dirX[d];
-    int nextY = ghost.y + dirY[d];
-    if (!canMoveTo(nextX, nextY)) {
-      continue;
+  int pacTileX = tileForPixel(pacman.x);
+  int pacTileY = pacman.y / TILE_SIZE;
+  int targetTileX = pacTileX;
+  int targetTileY = pacTileY;
+
+  switch (ghostIndex) {
+  case 1:
+    targetTileX = wrappedTileX(pacTileX + pacman.dx * 4);
+    targetTileY = max(1, min(GRID_HEIGHT - 2, pacTileY + pacman.dy * 4));
+    break;
+  case 2:
+    targetTileX = (frameNumber / 120) % 2 == 0 ? 1 : GRID_WIDTH - 2;
+    targetTileY = (frameNumber / 240) % 2 == 0 ? 1 : GRID_HEIGHT - 2;
+    break;
+  case 3:
+    if (tileDistance(tileForPixel(ghost.x), ghost.y / TILE_SIZE, pacTileX, pacTileY) < 7) {
+      targetTileX = ghostIndex % 2 == 0 ? 1 : GRID_WIDTH - 2;
+      targetTileY = GRID_HEIGHT - 2;
     }
-    int tileX = tileForPixel(nextX);
-    int tileY = nextY / TILE_SIZE;
-    int distance = iabs(tileX - targetTileX) + iabs(tileY - targetTileY);
+    break;
+  default:
+    break;
+  }
+
+  int bestDir = dirs[0];
+  int bestScore = powerTimer > 0 ? -32000 : 32000;
+  for (int i = 0; i < legalCount; i++) {
+    int d = dirs[i];
+    int nextTileX = wrappedTileX(tileForPixel(ghost.x) + dirX[d]);
+    int nextTileY = ghost.y / TILE_SIZE + dirY[d];
+    int distance = tileDistance(nextTileX, nextTileY, targetTileX, targetTileY);
+    int score = distance + random(-2, 3);
+    if (dirX[d] == ghost.dx && dirY[d] == ghost.dy) {
+      score -= powerTimer > 0 ? 0 : 1;
+    }
     if (powerTimer > 0) {
-      if (distance > bestScore) {
-        bestScore = distance;
+      if (score > bestScore) {
+        bestScore = score;
         bestDir = d;
       }
-    } else if (distance < bestScore) {
-      bestScore = distance;
+    } else if (score < bestScore) {
+      bestScore = score;
       bestDir = d;
     }
   }

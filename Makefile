@@ -21,10 +21,14 @@ ARDUINO_LIBRARIES_FILE ?= arduino-libraries.txt
 ARDUINO_MATRIXPORTAL_LIBRARIES_FILE ?= arduino-matrixportal-libraries.txt
 ARDUINO_BUILD_DIR ?= $(BUILD_DIR)/arduino
 ARDUINO_SKETCHES ?= $(shell find Arduino -mindepth 2 -maxdepth 2 -name '*.ino' | LC_ALL=C sort)
-PANEL_COUNT ?= 4
-PANEL_WIDTH ?= 32
-PANEL_HEIGHT ?= 32
-PANEL_CPPFLAGS := -I$(abspath Arduino/sign_common) -DSIGN_PANEL_COUNT=$(PANEL_COUNT) -DSIGN_PANEL_WIDTH=$(PANEL_WIDTH) -DSIGN_PANEL_HEIGHT=$(PANEL_HEIGHT) -DPANEL_COUNT=$(PANEL_COUNT) -DPANEL_WIDTH=$(PANEL_WIDTH) -DPANEL_HEIGHT=$(PANEL_HEIGHT)
+PANEL_LAYOUT_FILE ?= Arduino/sign_common/PanelLayout.h
+PANEL_LAYOUT_COUNT := $(shell awk '/^\#define PANEL_LAYOUT_PANEL_COUNT / {print $$3; exit}' "$(PANEL_LAYOUT_FILE)" 2>/dev/null)
+PANEL_LAYOUT_WIDTH := $(shell awk '/^\#define PANEL_LAYOUT_PANEL_WIDTH / {print $$3; exit}' "$(PANEL_LAYOUT_FILE)" 2>/dev/null)
+PANEL_LAYOUT_HEIGHT := $(shell awk '/^\#define PANEL_LAYOUT_PANEL_HEIGHT / {print $$3; exit}' "$(PANEL_LAYOUT_FILE)" 2>/dev/null)
+PANEL_COUNT ?= $(if $(PANEL_LAYOUT_COUNT),$(PANEL_LAYOUT_COUNT),4)
+PANEL_WIDTH ?= $(if $(PANEL_LAYOUT_WIDTH),$(PANEL_LAYOUT_WIDTH),32)
+PANEL_HEIGHT ?= $(if $(PANEL_LAYOUT_HEIGHT),$(PANEL_LAYOUT_HEIGHT),32)
+PANEL_CPPFLAGS := -I$(abspath Arduino/sign_common) -I$(abspath $(dir $(PANEL_LAYOUT_FILE))) -DSIGN_PANEL_COUNT=$(PANEL_COUNT) -DSIGN_PANEL_WIDTH=$(PANEL_WIDTH) -DSIGN_PANEL_HEIGHT=$(PANEL_HEIGHT) -DPANEL_COUNT=$(PANEL_COUNT) -DPANEL_WIDTH=$(PANEL_WIDTH) -DPANEL_HEIGHT=$(PANEL_HEIGHT)
 
 SIM_BUILD_DIR ?= $(BUILD_DIR)/sim
 SIM_TARGET_SKETCH := $(strip $(SKETCH))
@@ -36,7 +40,7 @@ SIM_IDE_PLIST := sim/macos/Info.plist
 SIM_SCALE ?= 8
 SIM_MAX_FRAMES ?= 0
 SIM_PANEL ?= $(PANEL_WIDTH)x$(PANEL_HEIGHT)
-SIM_LAYOUT ?= sim-panel-layout.txt
+SIM_LAYOUT ?= $(PANEL_LAYOUT_FILE)
 SIM_CONTROL ?= $(SIM_BUILD_DIR)/sim-control.env
 SIM_CXX ?= c++
 SWIFTC ?= swiftc
@@ -61,6 +65,7 @@ doctor: ## Print local tool and build configuration.
 	@printf "Arduino config: %s\n" "$(ARDUINO_CONFIG)"
 	@printf "Arduino core:   adafruit:samd@%s\n" "$(ADAFRUIT_SAMD_VERSION)"
 	@printf "Arduino FQBN:   %s\n" "$(ARDUINO_FQBN)"
+	@printf "Panel layout:   %s\n" "$(PANEL_LAYOUT_FILE)"
 	@printf "Panel geometry: %s x %sx%s\n" "$(PANEL_COUNT)" "$(PANEL_WIDTH)" "$(PANEL_HEIGHT)"
 	@printf "Swift compiler: "
 	@if command -v "$(SWIFTC)" >/dev/null 2>&1; then "$(SWIFTC)" --version | head -n 1; else echo "missing ($(SWIFTC))"; fi
